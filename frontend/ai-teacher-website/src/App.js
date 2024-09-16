@@ -31,22 +31,30 @@ const App = () => {
   return (
     <Router>
       <div className="flex flex-col h-screen bg-gray-900 text-gray-200 overflow-hidden">
-        <nav className="bg-gray-800 shadow-sm">
-          <div className="container mx-auto px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <BookOpen className="h-8 w-8 text-blue-400" />
-                <span className="text-xl font-semibold text-gray-200 ml-2">AI-Powered Teacher</span>
-              </div>
-              <div className="flex space-x-4">
-                <NavButton to="/" icon={<BookOpen size={20} />} label="Learn" />
-                <NavButton to="/config" icon={<Sliders size={20} />} label="Configure" />
-                <NavButton to="/about" icon={<Info size={20} />} label="About" />
-              </div>
-            </div>
+       <nav className="bg-gradient-to-r from-gray-800 to-gray-900 shadow-lg">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between h-16">
+        <div className="flex items-center">
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="h-8 w-auto sm:h-10 md:h-12 lg:h-14 object-contain transition-all duration-300 ease-in-out hover:scale-105" 
+          />
+          <div className="ml-3 sm:ml-1 flex items-baseline">
+            <span className="text-sm font-medium text-gray-400 mr-2">presents</span>
+            <span className="text-xl font-bold text-white">AI-Powered Teacher</span>
           </div>
-        </nav>
-
+        </div>
+        <div className="hidden sm:block">
+          <div className="flex items-baseline space-x-4">
+            <NavButton to="/" icon={<BookOpen size={18} />} label="Learn" />
+            <NavButton to="/config" icon={<Sliders size={18} />} label="Configure" />
+            <NavButton to="/about" icon={<Info size={18} />} label="About" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
         <main className="flex-grow container mx-auto mt-8 p-4 overflow-hidden">
           <Switch>
             <Route exact path="/">
