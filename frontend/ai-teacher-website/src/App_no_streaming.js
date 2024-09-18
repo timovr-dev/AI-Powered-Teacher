@@ -1,19 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Switch, Link, useLocation } from 'react-router-dom';
 import { Send, BookOpen, Sliders, Info, Trash2 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';  // Import remark-gfm
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const App = () => {
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem('chatHistory');
-    return saved
-      ? JSON.parse(saved)
-      : [
-          { text: "Hello! I'm your AI teacher. How can I assist you today?", sender: 'ai' },
-        ];
+    return saved ? JSON.parse(saved) : [
+      { text: "Hello! I'm your AI teacher. How can I assist you today?", sender: 'ai' },
+    ];
   });
 
   const [config, setConfig] = useState({
@@ -40,10 +34,10 @@ const App = () => {
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div className="flex items-center">
-                <img
-                  src="/logo.png"
-                  alt="Logo"
-                  className="h-8 w-auto sm:h-10 md:h-12 lg:h-14 object-contain transition-all duration-300 ease-in-out hover:scale-105"
+                <img 
+                  src="/logo.png" 
+                  alt="Logo" 
+                  className="h-8 w-auto sm:h-10 md:h-12 lg:h-14 object-contain transition-all duration-300 ease-in-out hover:scale-105" 
                 />
                 <div className="ml-3 sm:ml-1 flex items-baseline">
                   <span className="text-sm font-medium text-gray-400 mr-2">presents</span>
@@ -63,12 +57,7 @@ const App = () => {
         <main className="flex-grow container mx-auto mt-8 p-4 overflow-hidden">
           <Switch>
             <Route exact path="/">
-              <TeacherInterface
-                messages={messages}
-                setMessages={setMessages}
-                clearHistory={clearHistory}
-                config={config}
-              />
+              <TeacherInterface messages={messages} setMessages={setMessages} clearHistory={clearHistory} config={config} />
             </Route>
             <Route path="/config">
               <ConfigPage config={config} setConfig={setConfig} />
@@ -92,9 +81,7 @@ const NavButton = ({ to, icon, label }) => {
     <Link
       to={to}
       className={`flex items-center px-3 py-2 rounded text-sm font-medium ${
-        active
-          ? 'text-blue-400 bg-gray-700'
-          : 'text-gray-300 hover:text-blue-400 hover:bg-gray-700'
+        active ? 'text-blue-400 bg-gray-700' : 'text-gray-300 hover:text-blue-400 hover:bg-gray-700'
       } transition-colors duration-200`}
     >
       {icon}
@@ -107,11 +94,9 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
-  const maxHeight = 240; // Max height in pixels (approx 10 lines)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -119,13 +104,6 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
       scrollToBottom();
     }
   }, [messages]);
-
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, maxHeight)}px`;
-    }
-  }, [inputMessage]);
 
   const sendMessageToBackend = async (userMessage) => {
     setIsGenerating(true);
@@ -139,9 +117,9 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chat_history: updatedMessages.map((msg) => ({
+          chat_history: updatedMessages.map(msg => ({
             role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.text,
+            content: msg.text
           })),
           user_info: {
             explanation_complexity: config.explanation_complexity,
@@ -150,7 +128,7 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
             learning_goal: config.learning_goal,
             learning_style: config.learning_style,
             interests: config.interests,
-          },
+          }
         }),
       });
 
@@ -162,14 +140,14 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
       const decoder = new TextDecoder();
       let aiResponse = '';
 
-      setMessages((prevMessages) => [...prevMessages, { text: '', sender: 'ai' }]);
+      setMessages(prevMessages => [...prevMessages, { text: '', sender: 'ai' }]);
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value);
         aiResponse += chunk;
-        setMessages((prevMessages) => {
+        setMessages(prevMessages => {
           const newMessages = [...prevMessages];
           newMessages[newMessages.length - 1].text = aiResponse;
           return newMessages;
@@ -177,12 +155,9 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
       }
     } catch (error) {
       console.error('Error sending message to backend:', error);
-      setMessages((prevMessages) => [
+      setMessages(prevMessages => [
         ...prevMessages,
-        {
-          text: "I'm sorry, I encountered an error while processing your request.",
-          sender: 'ai',
-        },
+        { text: "I'm sorry, I encountered an error while processing your request.", sender: 'ai' }
       ]);
     } finally {
       setIsGenerating(false);
@@ -218,126 +193,28 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
         </div>
         <div className="flex-grow overflow-y-auto space-y-2 pb-4 pr-4">
           {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${
-                message.sender === 'user' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              <div
+            <div key={index} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div 
                 className={`max-w-[70%] sm:max-w-[80%] rounded-lg p-3 ${
-                  message.sender === 'user'
-                    ? 'bg-blue-800 text-blue-100'
-                    : 'bg-gray-700 text-gray-200'
+                  message.sender === 'user' ? 'bg-blue-800 text-blue-100' : 'bg-gray-700 text-gray-200'
                 }`}
               >
-                {message.sender === 'user' ? (
-                  message.text
-                ) : (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}  // Include remarkGfm plugin
-                    components={{
-                      h1: ({ node, ...props }) => (
-                        <h1 className="text-2xl font-bold my-2" {...props} />
-                      ),
-                      h2: ({ node, ...props }) => (
-                        <h2 className="text-xl font-bold my-2" {...props} />
-                      ),
-                      h3: ({ node, ...props }) => (
-                        <h3 className="text-lg font-bold my-2" {...props} />
-                      ),
-                      h4: ({ node, ...props }) => (
-                        <h4 className="text-md font-bold my-2" {...props} />
-                      ),
-                      h5: ({ node, ...props }) => (
-                        <h5 className="text-sm font-bold my-2" {...props} />
-                      ),
-                      h6: ({ node, ...props }) => (
-                        <h6 className="text-xs font-bold my-2" {...props} />
-                      ),
-                      strong: ({ node, ...props }) => (
-                        <strong className="font-semibold" {...props} />
-                      ),
-                      em: ({ node, ...props }) => <em className="italic" {...props} />,
-                      code({ node, inline, className, children, ...props }) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={vscDarkPlus}
-                            language={match[1]}
-                            PreTag="div"
-                            {...props}
-                          >
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code
-                            className={`bg-gray-200 text-red-500 rounded px-1 ${
-                              className || ''
-                            }`}
-                            {...props}
-                          >
-                            {children}
-                          </code>
-                        );
-                      },
-                      blockquote: ({ node, ...props }) => (
-                        <blockquote
-                          className="border-l-4 border-gray-500 pl-4 italic my-2 text-gray-300"
-                          {...props}
-                        />
-                      ),
-                      ul: ({ node, ...props }) => (
-                        <ul className="list-disc list-inside ml-4 my-2" {...props} />
-                      ),
-                      ol: ({ node, ...props }) => (
-                        <ol className="list-decimal list-inside ml-4 my-2" {...props} />
-                      ),
-                      li: ({ node, ...props }) => <li className="my-1" {...props} />,
-                      p: ({ node, ...props }) => <p className="my-2" {...props} />,
-                      a: ({ node, ...props }) => (
-                        <a className="text-blue-400 hover:underline" {...props} />
-                      ),
-                      hr: ({ node, ...props }) => (
-                        <hr className="my-4 border-gray-500" {...props} />
-                      ),
-                      table: ({ node, ...props }) => (
-                        <table
-                          className="table-auto border-collapse border border-gray-500 my-2"
-                          {...props}
-                        />
-                      ),
-                      th: ({ node, ...props }) => (
-                        <th
-                          className="border border-gray-500 px-4 py-2 bg-gray-600"
-                          {...props}
-                        />
-                      ),
-                      td: ({ node, ...props }) => (
-                        <td className="border border-gray-500 px-4 py-2" {...props} />
-                      ),
-                    }}
-                  >
-                    {message.text}
-                  </ReactMarkdown>
-                )}
+                {message.text}
               </div>
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
         <div className="mt-4 flex">
-          <textarea
-            ref={textareaRef}
+          <input
+            type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
-            className="flex-grow bg-gray-700 text-gray-200 rounded-l-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-y-auto"
+            className="flex-grow bg-gray-700 text-gray-200 rounded-l-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={isGenerating}
-            rows={1}
-            style={{ maxHeight: `${maxHeight}px` }}
-          ></textarea>
+          />
           <button
             onClick={handleSendMessage}
             className={`bg-blue-700 text-white p-2 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 ${
@@ -356,7 +233,7 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
 const ConfigPage = ({ config, setConfig }) => {
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setConfig((prevConfig) => ({ ...prevConfig, [name]: value }));
+    setConfig(prevConfig => ({ ...prevConfig, [name]: value }));
   };
 
   return (
@@ -378,7 +255,9 @@ const ConfigPage = ({ config, setConfig }) => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Teaching Style</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Teaching Style
+          </label>
           <select
             name="teaching_style"
             value={config.teaching_style}
@@ -392,7 +271,9 @@ const ConfigPage = ({ config, setConfig }) => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Occupation</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Occupation
+          </label>
           <input
             type="text"
             name="occupation"
@@ -403,7 +284,9 @@ const ConfigPage = ({ config, setConfig }) => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Learning Goal</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Learning Goal
+          </label>
           <input
             type="text"
             name="learning_goal"
@@ -414,7 +297,9 @@ const ConfigPage = ({ config, setConfig }) => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Learning Style</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Learning Style
+          </label>
           <select
             name="learning_style"
             value={config.learning_style}
@@ -450,14 +335,10 @@ const AboutPage = () => {
     <div className="max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
       <h2 className="text-2xl font-semibold mb-4 text-gray-200">About AI-Powered Teacher</h2>
       <p className="mb-4 text-gray-300">
-        AI-Powered Teacher is an innovative platform designed to revolutionize the way we learn. By
-        harnessing the power of artificial intelligence, we provide personalized, adaptive learning
-        experiences tailored to each student's unique needs and learning style.
+        AI-Powered Teacher is an innovative platform designed to revolutionize the way we learn. By harnessing the power of artificial intelligence, we provide personalized, adaptive learning experiences tailored to each student's unique needs and learning style.
       </p>
       <p className="mb-6 text-gray-300">
-        Our mission is to make high-quality education accessible to everyone, anywhere, at any time.
-        We believe that with the right tools and support, every learner can achieve their full
-        potential.
+        Our mission is to make high-quality education accessible to everyone, anywhere, at any time. We believe that with the right tools and support, every learner can achieve their full potential.
       </p>
       <h3 className="text-xl font-semibold mb-2 text-gray-200">Key Features:</h3>
       <ul className="list-disc pl-5 mb-6 text-gray-300 space-y-1">
