@@ -26,12 +26,13 @@ def create_learning_plan(content):
     
     user_prompt = f"""
     Please create a structured learning plan from the following content. Divide the plan into 
-    sections of 200-300 words each, maintaining the original structure and order:
+    sections of 200-300 words each, maintaining the original content and structure. Generate a json structure with the keys 'content_1, content_2, ..., content_n' the values should be the sections.:
 
+    This is the content:
     {content}
     """
 
-    pprint(user_prompt)
+    #pprint(user_prompt)
     
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -43,12 +44,11 @@ def create_learning_plan(content):
     
     return completion.choices[0].message.content
 
+
 def save_to_json(learning_plan, output_file):
-    chunks = learning_plan.split('\n\n')
-    json_data = [{"chunk": i+1, "content": chunk} for i, chunk in enumerate(chunks)]
-    
-    with open(output_file, 'w') as f:
-        json.dump(json_data, f, indent=2)
+    with open(output_file, 'w') as file:
+        file.write(learning_plan)
+
 
 def main():
     pdf_path = "./Saudi-Arabia.pdf"
@@ -60,8 +60,9 @@ def main():
     
     pdf_content = load_pdf(pdf_path)
     learning_plan = create_learning_plan(pdf_content)
+
     save_to_json(learning_plan, output_file)
-    
+
     print(f"Learning plan has been created and saved to {output_file}")
 
 if __name__ == "__main__":
