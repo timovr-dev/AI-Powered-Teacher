@@ -8,6 +8,7 @@ from typing import List
 import asyncio
 import uvicorn
 import os
+from prompts_with_examples import *
 
 # ALLaM imports
 from ibm_watsonx_ai.foundation_models import Model
@@ -15,9 +16,11 @@ from ibm_watsonx_ai.foundation_models import Model
 # Globally loaded models and components
 models = {}
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
+
 
 class UserInfo(BaseModel):
     explanation_complexity: float
@@ -27,9 +30,11 @@ class UserInfo(BaseModel):
     learning_style: str
     interests: str
 
+
 class GenerationRequest(BaseModel):
     chat_history: List[ChatMessage]
     user_info: UserInfo
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,13 +42,13 @@ async def lifespan(app: FastAPI):
     model_id = 'sdaia/allam-1-13b-instruct'
     parameters = {
         'decoding_method': 'greedy',
-        'max_new_tokens': 120,
+        'max_new_tokens': 300,  # 120, # with 120 we got incomplete responses
         'repetition_penalty': 1.05
     }
 
     # Use environment variables or secure methods to handle API keys
-    api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
+    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "de13a787-3de2-49a5-a5ae-845d49453a95"
 
     models['llm'] = Model(
         model_id=model_id,
@@ -72,6 +77,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+
 # Updated AsyncIteratorWrapper
 class AsyncIteratorWrapper:
     def __init__(self, iterator):
@@ -95,6 +101,7 @@ class AsyncIteratorWrapper:
         else:
             return value
 
+
 @app.post("/streamer/")
 async def stream_response(request: GenerationRequest):
     try:
@@ -115,7 +122,7 @@ async def stream_response(request: GenerationRequest):
         last_user_instruction = chat_history[-1]['content']
         print(f'Last user instruction: {last_user_instruction}')
 
-        system_prompt = '' # for mazen
+        system_prompt = '' # _get_paraphrasing_prompt() for mazen
         prompt = f"<s> [INST] {last_user_instruction} [/INST]"
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
@@ -130,7 +137,7 @@ async def stream_response(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/streamermazen/")
+@app.post("/streamer-with-context/")
 async def stream_response_mazen(request: GenerationRequest):
     try:
         chat_history = []
@@ -150,8 +157,11 @@ async def stream_response_mazen(request: GenerationRequest):
         last_user_instruction = chat_history[-1]['content']
         print(f'Last user instruction: {last_user_instruction}')
 
-        system_prompt = '' # for mazen
-        prompt = f"<s> [INST] {last_user_instruction} [/INST]"
+        formatted_question = f"""<s> [INST] {last_user_instruction} [/INST]"""
+
+        system_prompt = get_science_and_student_interest_prompt()  # for mazen
+        # prompt = f"<s> [INST] {last_user_instruction} [/INST]"
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -164,8 +174,10 @@ async def stream_response_mazen(request: GenerationRequest):
         print(f'Error in /streamer/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
+
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     uvicorn.run(app, host=host, port=port, log_level="info")
+
 
 if __name__ == "__main__":
     run_server()

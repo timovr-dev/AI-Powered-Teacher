@@ -133,7 +133,8 @@ const TeacherInterface = ({ messages, setMessages, clearHistory, config }) => {
     setMessages(updatedMessages);
 
     try {
-      const response = await fetch('http://localhost:8000/streamer/', {
+      //const response = await fetch('http://localhost:8000/streamer/', { //Mazen: now with context
+      const response = await fetch('http://localhost:8000/streamer-with-context/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

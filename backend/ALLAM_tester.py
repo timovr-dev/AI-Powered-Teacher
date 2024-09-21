@@ -1,7 +1,10 @@
+import os
+
+
 def get_credentials():
     return {
         "url": "https://eu-de.ml.cloud.ibm.com",
-        "apikey": "QhLK-78Rrb2v1o90iHk8gqLldD9_m8SigsDVhnZox5Eq"
+        "apikey": str(os.environ.get('ALLAM_WATSONX_KEY'))
     }
 
 
