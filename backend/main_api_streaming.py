@@ -102,7 +102,7 @@ class AsyncIteratorWrapper:
             return value
 
 
-@app.post("/streamer/")
+@app.post("/help-chat/")
 async def stream_response(request: GenerationRequest):
     try:
         chat_history = []
