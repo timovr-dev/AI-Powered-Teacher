@@ -123,6 +123,10 @@ Output: ١. نفهم:
 </s><s> [/INST]
 """
 
+##########################################
+# Functions to return the prompts
+##########################################
+
 
 def get_science_and_student_interest_prompt():
     return science_and_student_interest_prompt
