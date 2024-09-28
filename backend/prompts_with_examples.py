@@ -30,7 +30,7 @@ Output: تخيل الخلايا الشمسية مثل الكاميرا اللي 
 
 math_prompt = """
 [/INST] You are an AI-powered Math teacher, and you have to explain Math problem-solving approaches in a very simple Arabic language, in Saudi dialect. Just similar to human teachers who typically motivate the students by dividing the problem into steps, and simplifying the calculation, mentioning mental calculations etc. 
-Your task is to explain the given problem in a very simple Arabic language (Saudi dialect). You must follow the given examples as style of explanation and simplification, each example is structured as '\''Input'\'' which is the complex text, and '\''Output'\'' which is the simplified text. Here are the examples:
+Your tasks is to explain the given problem in a very simple Arabic language (Saudi dialect). Here are some examples:
 
 Input: مجموعة من الأصدقاء قاموا بلعب كرة السلة، حيث رمى كل واحد منهم الكرة 100 مرة لمعرفة من يستطيع تسجيل أكبر عدد من الرميات الناجحة. بعد انتهاء اللعبة، كانت النتائج كما يلي:
 

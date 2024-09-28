@@ -167,36 +167,46 @@ async def stream_response_mazen(request: GenerationRequest):
 
         # 1. For science, it worked well with user interests
         # system_prompt = get_science_and_student_interest_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
 
         # 2. For Arabic grammer, we try it first without user interests
         # it worked well without user interests
         # system_prompt = get_arabic_grammar_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}"""
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}"""
 
         # Now, let's try it with user interests:
         # 2.A. user interests only passed in system prompt, not in examples
         # As expected, user interests were ignored because it did not exit in the examples
         # system_prompt = get_arabic_grammar_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
 
         # 2.B. user interests passed in system prompt, and existed in examples
         # status: It worked perfectly
-        # system_prompt = get_arabic_grammar_with_user_interests_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
 
         # 3. For Math, we try it first without user interests
         # Status: It worked, Okay
-        system_prompt = get_math_prompt()
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}"""
+        # system_prompt = get_math_prompt()
+        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
-        # TODO: after getting the whole contents from gen stream, append it as assistant msg to the chat history..
+        # Append the response as assistant msg to the chat history for complete context
+        # Capture the response from the stream
+        full_response = ""
 
         async def event_generator():
+            nonlocal full_response  # Capture the full response
             async for chunk in AsyncIteratorWrapper(gen):
+                full_response += chunk  # Append each chunk to the full response
                 yield chunk
+
+        # Once the stream completes, append it to the chat history
+        chat_history.append({
+            'role': 'assistant',
+            'content': full_response
+        })
 
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
