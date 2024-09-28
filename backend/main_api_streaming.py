@@ -42,13 +42,17 @@ async def lifespan(app: FastAPI):
     model_id = 'sdaia/allam-1-13b-instruct'
     parameters = {
         'decoding_method': 'greedy',
-        'max_new_tokens': 300,  # 120, # with 120 we got incomplete responses
+        'max_new_tokens': 1536,  # 300,  # 120, # with 120 we got incomplete responses, let's use the max 1536
         'repetition_penalty': 1.05
     }
 
     # Use environment variables or secure methods to handle API keys
-    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "de13a787-3de2-49a5-a5ae-845d49453a95"
+    # api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    # project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "de13a787-3de2-49a5-a5ae-845d49453a95"
+    # temp for test poject, because Mazen's project has no more tokens
+    api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
+
 
     models['llm'] = Model(
         model_id=model_id,
@@ -159,11 +163,36 @@ async def stream_response_mazen(request: GenerationRequest):
 
         formatted_question = f"""<s> [INST] {last_user_instruction} [/INST]"""
 
-        system_prompt = get_science_and_student_interest_prompt()  # for mazen
-        # prompt = f"<s> [INST] {last_user_instruction} [/INST]"
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        # choose one of the system prompts we prepared, i.e. one use-case
+
+        # 1. For science, it worked well with user interests
+        # system_prompt = get_science_and_student_interest_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+
+        # 2. For Arabic grammer, we try it first without user interests
+        # it worked well without user interests
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}"""
+
+        # Now, let's try it with user interests:
+        # 2.A. user interests only passed in system prompt, not in examples
+        # As expected, user interests were ignored because it did not exit in the examples
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+
+        # 2.B. user interests passed in system prompt, and existed in examples
+        # status: It worked perfectly
+        # system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+
+        # 3. For Math, we try it first without user interests
+        # Status: It worked, Okay
+        system_prompt = get_math_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
+
+        # TODO: after getting the whole contents from gen stream, append it as assistant msg to the chat history..
 
         async def event_generator():
             async for chunk in AsyncIteratorWrapper(gen):

@@ -4,7 +4,8 @@ import os
 def get_credentials():
     return {
         "url": "https://eu-de.ml.cloud.ibm.com",
-        "apikey": str(os.environ.get('ALLAM_WATSONX_KEY'))
+        # "apikey": str(os.environ.get('ALLAM_WATSONX_KEY')) # Mazen API key
+        "apikey": "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"  # timo's API key
     }
 
 
@@ -15,7 +16,8 @@ parameters = {
     "repetition_penalty": 1
 }
 
-project_id = "afb5003b-88c3-4df2-a989-b9ded2b0cab5"
+# project_id = "afb5003b-88c3-4df2-a989-b9ded2b0cab5"  # Mazen Project
+project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"  # test project Timo and Mazen
 
 from ibm_watsonx_ai.foundation_models import Model
 
