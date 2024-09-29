@@ -246,10 +246,14 @@ const HelperWindow = ({
   );
 };
 
+
 const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
   const [uploadedText, setUploadedText] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // You can adjust this value to change the width of the content
+  const contentWidthPercentage = 80; // percentage of the parent container's width
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -291,7 +295,7 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
 
   return (
     <div
-      className="relative flex flex-col h-full overflow-y-auto"
+      className="relative flex flex-col h-full w-full overflow-y-auto"
       onMouseUp={handleMouseUp}
     >
       {!uploadedText && (
@@ -317,8 +321,17 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
         </div>
       )}
       {uploadedText && (
-        <div className="max-w-full mx-auto p-4 bg-gray-800 rounded">
-          <div className="prose prose-invert lg:prose-lg">
+        <div 
+          className="mx-auto p-4 bg-gray-800 rounded"
+          style={{ width: `${contentWidthPercentage}%` }}
+        >
+          <div 
+            className="prose prose-invert lg:prose-lg w-full"
+            style={{
+              maxWidth: 'none', // Override Tailwind prose max-width
+              width: '100%',    // Ensure full width
+            }}
+          >
             <ReactMarkdown
               children={uploadedText}
               remarkPlugins={[remarkGfm]}
@@ -336,15 +349,20 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
                     </SyntaxHighlighter>
                   ) : (
                     <code
-                      className={`bg-gray-700 text-red-400 rounded px-1 ${
-                        className || ''
-                      }`}
+                      className={`bg-gray-700 text-red-400 rounded px-1 ${className || ''}`}
                       {...props}
                     >
                       {children}
                     </code>
                   );
                 },
+                p: ({ children }) => <p style={{ maxWidth: 'none' }}>{children}</p>,
+                h1: ({ children }) => <h1 style={{ maxWidth: 'none' }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ maxWidth: 'none' }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ maxWidth: 'none' }}>{children}</h3>,
+                h4: ({ children }) => <h4 style={{ maxWidth: 'none' }}>{children}</h4>,
+                h5: ({ children }) => <h5 style={{ maxWidth: 'none' }}>{children}</h5>,
+                h6: ({ children }) => <h6 style={{ maxWidth: 'none' }}>{children}</h6>,
               }}
             />
           </div>
@@ -353,6 +371,12 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
     </div>
   );
 };
+
+
+
+
+
+
 
 const HelpChat = ({ messages, setMessages, config }) => {
   const [inputMessage, setInputMessage] = useState('');
