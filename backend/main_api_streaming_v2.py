@@ -51,8 +51,8 @@ async def lifespan(app: FastAPI):
     }
 
     # Use environment variables or secure methods to handle API keys
-    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  #  "de13a787-3de2-49a5-a5ae-845d49453a95"
+    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))
+    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))
 
     models['llm'] = Model(
         model_id=model_id,
@@ -220,11 +220,24 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
 
         # Step 4: Return learning plan
         learning_plan_json = json.loads(learning_plan)
-        return learning_plan_json
+
+        # Step 5: Create a learning plan in a markdown format
+        learning_plan_markdown = create_markdown_learning_plan(learning_plan_json)
+
+        # Return the markdown content as a JSON object
+        return {"learn-content": learning_plan_markdown}
 
     except Exception as e:
         print(f'Error in /upload-pdf/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def create_markdown_learning_plan(learning_plan_json):
+    markdown_content = []
+    for key in sorted(learning_plan_json.keys()):
+        markdown_content.append(learning_plan_json[key])
+    return '\n\n'.join(markdown_content)
+
 
 def extract_text_from_pdf(file_path):
     try:
@@ -243,7 +256,7 @@ async def create_learning_plan(content):
     try:
         system_prompt = """
         You are an expert curriculum designer. Your task is to create a structured learning plan 
-        from the given content. The plan should be divided into logical sections, each containing 
+        from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing 
         200-300 words. Maintain the original structure and order of the content, ensuring that 
         each chunk makes sense to learn in the given sequence.
         """
