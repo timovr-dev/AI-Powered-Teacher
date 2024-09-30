@@ -20,6 +20,7 @@ import uuid
 
 # ALLaM imports
 from ibm_watsonx_ai.foundation_models import Model
+from prompts_with_examples import *
 
 # Globally loaded models and components
 models = {}
@@ -46,13 +47,16 @@ async def lifespan(app: FastAPI):
     model_id = 'sdaia/allam-1-13b-instruct'
     parameters = {
         'decoding_method': 'greedy',
-        'max_new_tokens': 300,  # 120, # with 120 we got incomplete responses
+        'max_new_tokens': 1536,  # 300,  # 120, # with 120 we got incomplete responses, let's use the max 1536
         'repetition_penalty': 1.05
     }
 
     # Use environment variables or secure methods to handle API keys
-    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))
-    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))
+    # api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    # project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  #  "de13a787-3de2-49a5-a5ae-845d49453a95"
+    # temp for test poject, because Mazen's project has no more tokens
+    api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
 
     models['llm'] = Model(
         model_id=model_id,
@@ -150,7 +154,7 @@ async def stream_response(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/streamer-with-context/")
+@app.post("/simplify/")
 async def stream_response_mazen(request: GenerationRequest):
     try:
         chat_history = []
@@ -172,15 +176,50 @@ async def stream_response_mazen(request: GenerationRequest):
 
         formatted_question = f"""<s> [INST] {last_user_instruction} [/INST]"""
 
-        system_prompt = get_science_and_student_interest_prompt()  # for mazen
-        # prompt = f"<s> [INST] {last_user_instruction} [/INST]"
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        # choose one of the system prompts we prepared, i.e. one use-case
+
+        # 1. For science, it worked well with user interests
+        # system_prompt = get_science_and_student_interest_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+
+        # 2. For Arabic grammer, we try it first without user interests
+        # it worked well without user interests
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}"""
+
+        # Now, let's try it with user interests:
+        # 2.A. user interests only passed in system prompt, not in examples
+        # As expected, user interests were ignored because it did not exit in the examples
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+
+        # 2.B. user interests passed in system prompt, and existed in examples
+        # status: It worked perfectly
+        system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+
+        # 3. For Math, we try it first without user interests
+        # Status: It worked, Okay
+        # system_prompt = get_math_prompt()
+        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
+        # Append the response as assistant msg to the chat history for complete context
+        # Capture the response from the stream
+        full_response = ""
+
         async def event_generator():
+            nonlocal full_response  # Capture the full response
             async for chunk in AsyncIteratorWrapper(gen):
+                full_response += chunk  # Append each chunk to the full response
                 yield chunk
+
+        # Once the stream completes, append it to the chat history
+        chat_history.append({
+            'role': 'assistant',
+            'content': full_response
+        })
 
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
