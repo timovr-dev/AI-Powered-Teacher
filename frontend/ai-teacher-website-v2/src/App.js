@@ -6,7 +6,15 @@ import {
   Link,
   useLocation,
 } from 'react-router-dom';
-import { Send, BookOpen, Sliders, Info, Upload } from 'lucide-react';
+import {
+  Send,
+  BookOpen,
+  Sliders,
+  Info,
+  Upload,
+  MousePointerClick,
+  Trash2,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm'; // Import remark-gfm
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -23,67 +31,14 @@ const App = () => {
   });
 
   const [helpChatMessages, setHelpChatMessages] = useState([
-    { text: 'Hello! How can I assist you?', sender: 'ai' },
+    { text: 'Ask me anything about your learning plan!', sender: 'ai' },
   ]);
 
-  const sendSimplifyRequest = async (selectedText, instruction) => {
-    const userMessage = `Simplify the following text: "${selectedText}"\nInstruction: ${instruction}`;
-    const updatedMessages = [
-      ...helpChatMessages,
-      { text: userMessage, sender: 'user' },
-    ];
-    setHelpChatMessages(updatedMessages);
+  const [simplifierMessages, setSimplifierMessages] = useState([]);
 
-    try {
-      const response = await fetch('http://localhost:8000/help-chat/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_history: updatedMessages.map((msg) => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.text,
-          })),
-          user_info: config,
-        }),
-      });
+  const [selectedText, setSelectedText] = useState('');
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let aiResponse = '';
-
-      setHelpChatMessages((prevMessages) => [
-        ...prevMessages,
-        { text: '', sender: 'ai' },
-      ]);
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        aiResponse += chunk;
-        setHelpChatMessages((prevMessages) => {
-          const newMessages = [...prevMessages];
-          newMessages[newMessages.length - 1].text = aiResponse;
-          return newMessages;
-        });
-      }
-    } catch (error) {
-      console.error('Error in simplify request:', error);
-      setHelpChatMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          text: "I'm sorry, I encountered an error while processing your request.",
-          sender: 'ai',
-        },
-      ]);
-    }
-  };
+  const [uploadedText, setUploadedText] = useState('');
 
   return (
     <Router>
@@ -133,9 +88,14 @@ const App = () => {
             <Route exact path="/">
               <MainPage
                 config={config}
-                sendSimplifyRequest={sendSimplifyRequest}
                 helpChatMessages={helpChatMessages}
                 setHelpChatMessages={setHelpChatMessages}
+                simplifierMessages={simplifierMessages}
+                setSimplifierMessages={setSimplifierMessages}
+                selectedText={selectedText}
+                setSelectedText={setSelectedText}
+                uploadedText={uploadedText}
+                setUploadedText={setUploadedText}
               />
             </Route>
             <Route path="/config">
@@ -173,27 +133,32 @@ const NavButton = ({ to, icon, label }) => {
 
 const MainPage = ({
   config,
-  sendSimplifyRequest,
   helpChatMessages,
   setHelpChatMessages,
+  simplifierMessages,
+  setSimplifierMessages,
+  selectedText,
+  setSelectedText,
+  uploadedText,
+  setUploadedText,
 }) => {
-  const [selectedText, setSelectedText] = useState('');
-
   return (
     <div className="flex flex-grow h-full">
       <div className="w-2/3 h-full flex flex-col">
         <UploadPage
           config={config}
-          sendSimplifyRequest={sendSimplifyRequest}
           setSelectedText={setSelectedText}
+          uploadedText={uploadedText}
+          setUploadedText={setUploadedText}
         />
       </div>
       <div className="w-1/3 h-full flex flex-col">
         <HelperWindow
           config={config}
-          sendSimplifyRequest={sendSimplifyRequest}
           helpChatMessages={helpChatMessages}
           setHelpChatMessages={setHelpChatMessages}
+          simplifierMessages={simplifierMessages}
+          setSimplifierMessages={setSimplifierMessages}
           selectedText={selectedText}
         />
       </div>
@@ -203,17 +168,18 @@ const MainPage = ({
 
 const HelperWindow = ({
   config,
-  sendSimplifyRequest,
   helpChatMessages,
   setHelpChatMessages,
+  simplifierMessages,
+  setSimplifierMessages,
   selectedText,
 }) => {
-  const [activeTab, setActiveTab] = useState('Search Document');
+  const [activeTab, setActiveTab] = useState('Simplifier');
 
   return (
     <div className="h-full bg-gray-800 text-gray-200 flex flex-col border-l border-gray-700">
       <div className="flex">
-        {['Image Generation', 'Simplifier', 'Search Document'].map((tab) => (
+        {['Simplifier', 'Search Document', 'Visual Mnemonics'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -228,27 +194,36 @@ const HelperWindow = ({
         ))}
       </div>
       <div className="flex-grow overflow-auto">
-        {activeTab === 'Image Generation' && (
-          <ImageGenerationTab config={config} />
-        )}
         {activeTab === 'Simplifier' && (
-          <SimplifierTab config={config} selectedText={selectedText} />
+          <SimplifierTab
+            config={config}
+            selectedText={selectedText}
+            messages={simplifierMessages}
+            setMessages={setSimplifierMessages}
+          />
         )}
         {activeTab === 'Search Document' && (
           <HelpChat
             messages={helpChatMessages}
             setMessages={setHelpChatMessages}
             config={config}
+            showClearButton={true}
           />
+        )}
+        {activeTab === 'Visual Mnemonics' && (
+          <ImageGenerationTab config={config} />
         )}
       </div>
     </div>
   );
 };
 
-
-const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
-  const [uploadedText, setUploadedText] = useState('');
+const UploadPage = ({
+  config,
+  setSelectedText,
+  uploadedText,
+  setUploadedText,
+}) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -288,9 +263,17 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
   const handleMouseUp = (event) => {
     const selection = window.getSelection();
     const selectedText = selection.toString();
+    // Attempt to get markdown from selection
     if (selectedText) {
       setSelectedText(selectedText);
+    } else {
+      setSelectedText('');
     }
+  };
+
+  const handleClearLearningPlan = () => {
+    setUploadedText('');
+    setSelectedText('');
   };
 
   return (
@@ -321,15 +304,21 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
         </div>
       )}
       {uploadedText && (
-        <div 
-          className="mx-auto p-4 bg-gray-800 rounded"
+        <div
+          className="mx-auto p-4 bg-gray-800 rounded relative"
           style={{ width: `${contentWidthPercentage}%` }}
         >
-          <div 
-            className="prose prose-invert lg:prose-lg w-full"
+          <button
+            onClick={handleClearLearningPlan}
+            className="absolute top-4 right-4 bg-red-600 text-white p-2 rounded hover:bg-red-500 flex items-center"
+          >
+            <Trash2 size={16} className="mr-1" />
+          </button>
+          <div
+            className="prose prose-invert lg:prose-lg w-full mt-8"
             style={{
               maxWidth: 'none', // Override Tailwind prose max-width
-              width: '100%',    // Ensure full width
+              width: '100%', // Ensure full width
             }}
           >
             <ReactMarkdown
@@ -349,20 +338,36 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
                     </SyntaxHighlighter>
                   ) : (
                     <code
-                      className={`bg-gray-700 text-red-400 rounded px-1 ${className || ''}`}
+                      className={`bg-gray-700 text-red-400 rounded px-1 ${
+                        className || ''
+                      }`}
                       {...props}
                     >
                       {children}
                     </code>
                   );
                 },
-                p: ({ children }) => <p style={{ maxWidth: 'none' }}>{children}</p>,
-                h1: ({ children }) => <h1 style={{ maxWidth: 'none' }}>{children}</h1>,
-                h2: ({ children }) => <h2 style={{ maxWidth: 'none' }}>{children}</h2>,
-                h3: ({ children }) => <h3 style={{ maxWidth: 'none' }}>{children}</h3>,
-                h4: ({ children }) => <h4 style={{ maxWidth: 'none' }}>{children}</h4>,
-                h5: ({ children }) => <h5 style={{ maxWidth: 'none' }}>{children}</h5>,
-                h6: ({ children }) => <h6 style={{ maxWidth: 'none' }}>{children}</h6>,
+                p: ({ children }) => (
+                  <p style={{ maxWidth: 'none' }}>{children}</p>
+                ),
+                h1: ({ children }) => (
+                  <h1 style={{ maxWidth: 'none' }}>{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 style={{ maxWidth: 'none' }}>{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 style={{ maxWidth: 'none' }}>{children}</h3>
+                ),
+                h4: ({ children }) => (
+                  <h4 style={{ maxWidth: 'none' }}>{children}</h4>
+                ),
+                h5: ({ children }) => (
+                  <h5 style={{ maxWidth: 'none' }}>{children}</h5>
+                ),
+                h6: ({ children }) => (
+                  <h6 style={{ maxWidth: 'none' }}>{children}</h6>
+                ),
               }}
             />
           </div>
@@ -372,13 +377,12 @@ const UploadPage = ({ config, sendSimplifyRequest, setSelectedText }) => {
   );
 };
 
-
-
-
-
-
-
-const HelpChat = ({ messages, setMessages, config }) => {
+const HelpChat = ({
+  messages,
+  setMessages,
+  config,
+  showClearButton = false,
+}) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef(null);
@@ -475,8 +479,24 @@ const HelpChat = ({ messages, setMessages, config }) => {
     }
   };
 
+  const handleClearChat = () => {
+    setMessages([]);
+    setInputMessage('');
+  };
+
   return (
     <div className="flex flex-col h-full">
+      {messages.length > 0 && showClearButton && (
+        <div className="flex justify-end p-2">
+          <button
+            onClick={handleClearChat}
+            className="text-gray-400 hover:text-red-500 flex items-center"
+          >
+            <Trash2 size={16} className="mr-1" />
+            Clear Chat
+          </button>
+        </div>
+      )}
       <div className="flex-grow overflow-y-auto p-4">
         {messages.map((message, index) => (
           <div
@@ -492,76 +512,115 @@ const HelpChat = ({ messages, setMessages, config }) => {
                   : 'bg-gray-700 text-gray-200'
               }`}
             >
-              {message.sender === 'user' ? (
-                message.text
-              ) : (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code({ node, inline, className, children, ...props }) {
-                      const match = /language-(\w+)/.exec(className || '');
-                      return !inline && match ? (
-                        <SyntaxHighlighter
-                          style={vscDarkPlus}
-                          language={match[1]}
-                          PreTag="div"
-                          {...props}
-                        >
-                          {String(children).replace(/\n$/, '')}
-                        </SyntaxHighlighter>
-                      ) : (
-                        <code
-                          className={`bg-gray-200 text-red-500 rounded px-1 ${
-                            className || ''
-                          }`}
-                          {...props}
-                        >
-                          {children}
-                        </code>
-                      );
-                    },
-                  }}
-                >
-                  {message.text}
-                </ReactMarkdown>
-              )}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ node, inline, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        {...props}
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code
+                        className={`bg-gray-200 text-red-500 rounded px-1 ${
+                          className || ''
+                        }`}
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  },
+                }}
+              >
+                {message.text}
+              </ReactMarkdown>
             </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
       <div className="p-2">
-        <textarea
-          ref={textareaRef}
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Type your message..."
-          className="w-full bg-gray-700 text-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-y-auto"
-          disabled={isGenerating}
-          rows={1}
-          style={{ maxHeight: `${maxHeight}px` }}
-        ></textarea>
+        <div className="flex items-center">
+          <textarea
+            ref={textareaRef}
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type your message..."
+            className="flex-grow bg-gray-700 text-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-y-auto"
+            disabled={isGenerating}
+            rows={1}
+            style={{ maxHeight: `${maxHeight}px` }}
+          ></textarea>
+          <button
+            onClick={handleSendMessage}
+            className="ml-2 text-gray-200 hover:text-blue-500"
+            disabled={isGenerating}
+          >
+            <Send size={24} />
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-const SimplifierTab = ({ config, selectedText }) => {
-  const [inputText, setInputText] = useState('');
-  const [instruction, setInstruction] = useState('');
-  const [simplifiedText, setSimplifiedText] = useState('');
-  const [isSimplifying, setIsSimplifying] = useState(false);
+const SimplifierTab = ({
+  config,
+  selectedText,
+  messages,
+  setMessages,
+}) => {
+  const [inputMessage, setInputMessage] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showInputBox, setShowInputBox] = useState(false);
+
+  const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
+  const maxHeight = 240; // Max height in pixels (approx 10 lines)
 
   useEffect(() => {
     if (selectedText) {
-      setInputText(selectedText);
+      setInputMessage(selectedText);
+      setShowInputBox(true);
+    } else if (messages.length === 0) {
+      setInputMessage('');
+      setShowInputBox(false);
     }
-  }, [selectedText]);
+  }, [selectedText, messages.length]);
 
-  const handleSimplify = async () => {
-    if (!inputText.trim()) return;
-    setIsSimplifying(true);
+  useEffect(() => {
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(
+        textareaRef.current.scrollHeight,
+        maxHeight
+      )}px`;
+    }
+  }, [inputMessage]);
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isGenerating) return;
+
+    const userMessage = inputMessage;
+    setInputMessage('');
+    setIsGenerating(true);
+
+    const updatedMessages = [...messages, { text: userMessage, sender: 'user' }];
+    setMessages(updatedMessages);
 
     try {
       const response = await fetch('http://localhost:8000/simplify/', {
@@ -570,8 +629,10 @@ const SimplifierTab = ({ config, selectedText }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: inputText,
-          instruction: instruction,
+          chat_history: updatedMessages.map((msg) => ({
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: msg.text,
+          })),
           user_info: config,
         }),
       });
@@ -580,42 +641,145 @@ const SimplifierTab = ({ config, selectedText }) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      setSimplifiedText(data.simplified_text);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiResponse = '';
+
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { text: '', sender: 'ai' },
+      ]);
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        aiResponse += chunk;
+        setMessages((prevMessages) => {
+          const newMessages = [...prevMessages];
+          newMessages[newMessages.length - 1].text = aiResponse;
+          return newMessages;
+        });
+      }
     } catch (error) {
-      console.error('Error simplifying text:', error);
-      setSimplifiedText('Error simplifying text.');
+      console.error('Error sending message to help chat backend:', error);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          text: "I'm sorry, I encountered an error while processing your request.",
+          sender: 'ai',
+        },
+      ]);
     } finally {
-      setIsSimplifying(false);
+      setIsGenerating(false);
     }
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+    setInputMessage('');
+    setShowInputBox(false);
+  };
+
   return (
-    <div className="p-4 flex flex-col h-full">
-      <textarea
-        value={inputText}
-        onChange={(e) => setInputText(e.target.value)}
-        placeholder="Enter text to simplify..."
-        className="w-full h-32 bg-gray-700 text-gray-200 border border-gray-600 p-2 rounded mb-2"
-      ></textarea>
-      <input
-        type="text"
-        value={instruction}
-        onChange={(e) => setInstruction(e.target.value)}
-        placeholder="Enter instruction (optional)..."
-        className="w-full bg-gray-700 text-gray-200 border border-gray-600 p-2 rounded mb-2"
-      />
-      <button
-        onClick={handleSimplify}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
-        disabled={isSimplifying}
-      >
-        {isSimplifying ? 'Simplifying...' : 'Simplify'}
-      </button>
-      {simplifiedText && (
-        <div className="mt-4 bg-gray-700 text-gray-200 p-4 rounded overflow-y-auto">
-          <h3 className="text-lg font-semibold mb-2">Simplified Text:</h3>
-          <p>{simplifiedText}</p>
+    <div className="flex flex-col h-full">
+      {messages.length > 0 && (
+        <div className="flex justify-end p-2">
+          <button
+            onClick={handleClearChat}
+            className="text-gray-400 hover:text-red-500 flex items-center"
+          >
+            <Trash2 size={16} className="mr-1" />
+            Clear Chat
+          </button>
+        </div>
+      )}
+      <div className="flex-grow overflow-y-auto p-4">
+        {messages.length === 0 && !showInputBox && (
+          <div className="flex flex-col items-center justify-center h-full">
+            <MousePointerClick size={48} className="text-gray-500 mb-4" />
+            <p className="text-gray-400 text-xl font-semibold text-center">
+              Select some text to simplify
+            </p>
+          </div>
+        )}
+        {messages.map((message, index) => (
+          <div
+            key={index}
+            className={`flex ${
+              message.sender === 'user' ? 'justify-end' : 'justify-start'
+            } mb-2`}
+          >
+            <div
+              className={`max-w-[80%] rounded-lg p-2 ${
+                message.sender === 'user'
+                  ? 'bg-blue-800 text-blue-100'
+                  : 'bg-gray-700 text-gray-200'
+              }`}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ node, inline, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        {...props}
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code
+                        className={`bg-gray-200 text-red-500 rounded px-1 ${
+                          className || ''
+                        }`}
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  },
+                }}
+              >
+                {message.text}
+              </ReactMarkdown>
+            </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      {showInputBox && (
+        <div className="p-2">
+          <div className="flex items-center">
+            <textarea
+              ref={textareaRef}
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message..."
+              className="flex-grow bg-gray-700 text-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-y-auto"
+              disabled={isGenerating}
+              rows={1}
+              style={{ maxHeight: `${maxHeight}px` }}
+            ></textarea>
+            <button
+              onClick={handleSendMessage}
+              className="ml-2 text-gray-200 hover:text-blue-500"
+              disabled={isGenerating}
+            >
+              <Send size={24} />
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -671,7 +835,7 @@ const ImageGenerationTab = ({ config }) => {
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
         disabled={isGenerating}
       >
-        {isGenerating ? 'Generating...' : 'Generate Image'}
+        {isGenerating ? 'Generating...' : 'Generate Visual Mnemonic'}
       </button>
       {generatedImage && (
         <div className="mt-4">
