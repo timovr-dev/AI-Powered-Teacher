@@ -184,7 +184,7 @@ async def stream_response_mazen(request: GenerationRequest):
 
         # 1. For science, it worked well with user interests
         system_prompt = get_science_and_student_interest_prompt()
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
 
         # 2. For Arabic grammer, we try it first without user interests
         # it worked well without user interests

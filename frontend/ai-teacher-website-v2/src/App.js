@@ -142,6 +142,8 @@ const MainPage = ({
   uploadedText,
   setUploadedText,
 }) => {
+  const [simplifiedText, setSimplifiedText] = useState('');
+
   return (
     <div className="flex flex-grow h-full">
       <div className="w-2/3 h-full flex flex-col">
@@ -160,6 +162,8 @@ const MainPage = ({
           simplifierMessages={simplifierMessages}
           setSimplifierMessages={setSimplifierMessages}
           selectedText={selectedText}
+          simplifiedText={simplifiedText}
+          setSimplifiedText={setSimplifiedText}
         />
       </div>
     </div>
@@ -173,8 +177,11 @@ const HelperWindow = ({
   simplifierMessages,
   setSimplifierMessages,
   selectedText,
+  simplifiedText,
+  setSimplifiedText,
 }) => {
   const [activeTab, setActiveTab] = useState('Simplifier');
+  const [generatedImage, setGeneratedImage] = useState(null);
 
   return (
     <div className="h-full bg-gray-800 text-gray-200 flex flex-col border-l border-gray-700">
@@ -200,6 +207,7 @@ const HelperWindow = ({
             selectedText={selectedText}
             messages={simplifierMessages}
             setMessages={setSimplifierMessages}
+            setSimplifiedText={setSimplifiedText}
           />
         )}
         {activeTab === 'Search Document' && (
@@ -211,7 +219,13 @@ const HelperWindow = ({
           />
         )}
         {activeTab === 'Visual Mnemonics' && (
-          <ImageGenerationTab config={config} />
+          <ImageGenerationTab
+            config={config}
+            selectedText={selectedText}
+            simplifiedText={simplifiedText}
+            generatedImage={generatedImage}
+            setGeneratedImage={setGeneratedImage}
+          />
         )}
       </div>
     </div>
@@ -577,6 +591,7 @@ const SimplifierTab = ({
   selectedText,
   messages,
   setMessages,
+  setSimplifiedText,
 }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -661,6 +676,10 @@ const SimplifierTab = ({
           return newMessages;
         });
       }
+
+      // Copy the simplified text to the Visual Mnemonics tab
+      setSimplifiedText(aiResponse);
+
     } catch (error) {
       console.error('Error sending message to help chat backend:', error);
       setMessages((prevMessages) => [
@@ -786,10 +805,36 @@ const SimplifierTab = ({
   );
 };
 
-const ImageGenerationTab = ({ config }) => {
+const ImageGenerationTab = ({
+  config,
+  selectedText,
+  simplifiedText,
+  generatedImage,
+  setGeneratedImage,
+}) => {
   const [prompt, setPrompt] = useState('');
-  const [generatedImage, setGeneratedImage] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const textareaRef = useRef(null);
+  const maxHeight = 240; // Max height in pixels (approx 10 lines)
+
+  useEffect(() => {
+    if (simplifiedText) {
+      setPrompt(simplifiedText);
+    } else if (selectedText) {
+      setPrompt(selectedText);
+    }
+  }, [simplifiedText, selectedText]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(
+        textareaRef.current.scrollHeight,
+        maxHeight
+      )}px`;
+    }
+  }, [prompt]);
 
   const handleGenerateImage = async () => {
     if (!prompt.trim()) return;
@@ -823,20 +868,24 @@ const ImageGenerationTab = ({ config }) => {
 
   return (
     <div className="p-4 flex flex-col h-full">
-      <input
-        type="text"
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Enter image prompt..."
-        className="w-full bg-gray-700 text-gray-200 border border-gray-600 p-2 rounded mb-2"
-      />
-      <button
-        onClick={handleGenerateImage}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
-        disabled={isGenerating}
-      >
-        {isGenerating ? 'Generating...' : 'Generate Visual Mnemonic'}
-      </button>
+      <div className="flex items-center">
+        <textarea
+          ref={textareaRef}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Enter image prompt..."
+          className="flex-grow bg-gray-700 text-gray-200 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-y-auto"
+          rows={1}
+          style={{ maxHeight: `${maxHeight}px` }}
+        ></textarea>
+        <button
+          onClick={handleGenerateImage}
+          className="ml-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500"
+          disabled={isGenerating}
+        >
+          {isGenerating ? 'Generating...' : 'Generate Visual Mnemonic'}
+        </button>
+      </div>
       {generatedImage && (
         <div className="mt-4">
           <img src={generatedImage} alt="Generated" className="w-full rounded" />
