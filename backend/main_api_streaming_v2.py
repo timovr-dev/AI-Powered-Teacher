@@ -41,6 +41,10 @@ class GenerationRequest(BaseModel):
     chat_history: List[ChatMessage]
     user_info: UserInfo
 
+class ImageRequest(BaseModel):
+    prompt: str
+    user_info: UserInfo
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load your LLM model here
@@ -179,8 +183,8 @@ async def stream_response_mazen(request: GenerationRequest):
         # choose one of the system prompts we prepared, i.e. one use-case
 
         # 1. For science, it worked well with user interests
-        # system_prompt = get_science_and_student_interest_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        system_prompt = get_science_and_student_interest_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
 
         # 2. For Arabic grammer, we try it first without user interests
         # it worked well without user interests
@@ -195,8 +199,8 @@ async def stream_response_mazen(request: GenerationRequest):
 
         # 2.B. user interests passed in system prompt, and existed in examples
         # status: It worked perfectly
-        system_prompt = get_arabic_grammar_with_user_interests_prompt()
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
+        # system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}"""
 
         # 3. For Math, we try it first without user interests
         # Status: It worked, Okay
@@ -224,6 +228,40 @@ async def stream_response_mazen(request: GenerationRequest):
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
         print(f'Error in /streamer/ endpoint: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate-image/")
+async def generate_image(request: ImageRequest):
+    try:
+        # Print user information (optional for debugging)
+        print("\nUser Information:")
+        print(f"Explanation Complexity: {request.user_info.explanation_complexity}")
+        print(f"Teaching Style: {request.user_info.teaching_style}")
+        print(f"Occupation: {request.user_info.occupation}")
+        print(f"Learning Goal: {request.user_info.learning_goal}")
+        print(f"Learning Style: {request.user_info.learning_style}")
+        print(f"Interests: {request.user_info.interests}")
+
+        text_to_image_prompt = request.prompt
+
+        # Generate the image using the DALL·E 3 model
+        response = models['openai_client'].images.generate(
+            model="dall-e-3",
+            prompt=text_to_image_prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+        )
+
+        # Extract the image URL from the response
+        image_url = response.data[0].url
+        print(f"Image URL: {image_url}")
+
+        # Return a valid JSON response
+        return {"image_url": image_url}
+    except Exception as e:
+        print(f'Error in /generate-image/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -298,6 +336,8 @@ async def create_learning_plan(content):
         from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing 
         200-300 words. Maintain the original structure and order of the content, ensuring that 
         each chunk makes sense to learn in the given sequence.
+        
+        Always follow this structure in your output: Title in bold, and few lines under it.
         """
 
         user_prompt = f"""
@@ -310,6 +350,7 @@ async def create_learning_plan(content):
 
         completion = models['openai_client'].chat.completions.create(
             model="gpt-4o-mini",
+            temperature=0.1,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
