@@ -56,11 +56,11 @@ async def lifespan(app: FastAPI):
     }
 
     # Use environment variables or secure methods to handle API keys
-    # api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    # project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  #  "de13a787-3de2-49a5-a5ae-845d49453a95"
+    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  #  "de13a787-3de2-49a5-a5ae-845d49453a95"
     # temp for test poject, because Mazen's project has no more tokens
-    api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
+    # api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
+    # project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
 
     models['llm'] = Model(
         model_id=model_id,
@@ -183,8 +183,8 @@ async def stream_response_mazen(request: GenerationRequest):
         # choose one of the system prompts we prepared, i.e. one use-case
 
         # 1. For science, it worked well with user interests
-        system_prompt = get_science_and_student_interest_prompt()
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
+        # system_prompt = get_science_and_student_interest_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
 
         # 2. For Arabic grammer, we try it first without user interests
         # it worked well without user interests
@@ -204,8 +204,8 @@ async def stream_response_mazen(request: GenerationRequest):
 
         # 3. For Math, we try it first without user interests
         # Status: It worked, Okay
-        # system_prompt = get_math_prompt()
-        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
+        system_prompt = get_math_prompt()
+        prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -337,7 +337,8 @@ async def create_learning_plan(content):
         200-300 words. Maintain the original structure and order of the content, ensuring that 
         each chunk makes sense to learn in the given sequence.
         
-        Always follow this structure in your output: Title in bold, and few lines under it.
+        Always follow this structure in your output: Title in bold, and few lines under it. 
+        If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original, and write everything in Arabic language.
         """
 
         user_prompt = f"""
