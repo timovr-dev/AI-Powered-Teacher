@@ -22,6 +22,9 @@ import uuid
 from ibm_watsonx_ai.foundation_models import Model
 from prompts_with_examples import *
 
+# RAG imports 
+from RAG.RAGApplication import RAGSystem
+
 # Globally loaded models and components
 models = {}
 
@@ -74,9 +77,13 @@ async def lifespan(app: FastAPI):
     # Ensure OpenAI API key is set
     openai_api_key = os.environ.get('OPENAI_API_KEY')
 
+    models['openai_client'] = OpenAI(api_key=openai_api_key)
 
+    # RAG system 
+    embedding_model = "intfloat/multilingual-e5-large"
 
-    models['openai_client']= OpenAI(api_key=openai_api_key)
+    models['rag_system'] = RAGSystem(embedding_model)
+    
 
     print("Server started")
     yield
@@ -140,12 +147,34 @@ async def stream_response(request: GenerationRequest):
         print(f"Learning Style: {request.user_info.learning_style}")
         print(f"Interests: {request.user_info.interests}")
 
-        last_user_instruction = chat_history[-1]['content']
-        print(f'Last user instruction: {last_user_instruction}')
 
-        system_prompt = '' # _get_paraphrasing_prompt() for mazen
-        prompt = f"<s> [INST] {last_user_instruction} [/INST]"
+        system_prompt = """You are an AI assistant answering questions based only on the information in these three chunks:
+Chunk 1:
+<<CHUNK1>>
+Chunk 2:
+<<CHUNK2>>
+Chunk 3:
+<<CHUNK3>>
+User's question: <<QUESTION>>
+Answer the question using only information from these chunks. If the answer isn't fully contained in the chunks, state that you don't have enough information to respond. Don't use external knowledge or make assumptions."""
+ 
 
+        last_user_question = chat_history[-1]['content']
+        most_similar_chunks = models['rag_system'].retrieve_most_similar_chunks(last_user_question)
+
+        # create entire prompt
+        system_prompt_temp = system_prompt.replace("<<QUESTION>>", last_user_question)
+        system_prompt_temp = system_prompt_temp.replace("<<CHUNK1>>", most_similar_chunks[0])
+        system_prompt_temp = system_prompt_temp.replace("<<CHUNK2>>", most_similar_chunks[1])
+        system_prompt_temp = system_prompt_temp.replace("<<CHUNK3>>", most_similar_chunks[2])
+
+
+        prompt = f"<s> [INST] {system_prompt_temp} [/INST] Answer: "
+        print("-"*50)
+        print(prompt)
+        print("-"*50)
+        
+        # generate response
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
         async def event_generator():
@@ -281,7 +310,7 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
             file_object.write(file_content)
 
         # Store the path in the session
-        request.session['learn_content'] = file_location
+        request.session['learn_content_path'] = file_location
 
         # Step 1: Extract text from the PDF file
         pdf_content = extract_text_from_pdf(file_location)
@@ -295,10 +324,14 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         json_file_location = os.path.join('learn_plan', json_filename)
         save_learning_plan_to_json(learning_plan, json_file_location)
 
-        # Step 4: Return learning plan
+
+        # Step 4: Create Vectordatabase from learningplan based for RAG application
+        models['rag_system'].add_data_to_vectorstore(learning_plan)
+
+        # Step 5: Return learning plan
         learning_plan_json = json.loads(learning_plan)
 
-        # Step 5: Create a learning plan in a markdown format
+        # Step 6: Create a learning plan in a markdown format
         learning_plan_markdown = create_markdown_learning_plan(learning_plan_json)
 
         # Return the markdown content as a JSON object
