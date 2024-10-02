@@ -371,7 +371,13 @@ async def create_learning_plan(content):
         each chunk makes sense to learn in the given sequence.
         
         Always follow this structure in your output: Title in bold, and few lines under it. 
-        If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original, and write everything in Arabic language.
+        If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
+
+        Use in the learning plan the following mark down components:
+        - bold text
+        - small headings
+        - tables
+        - quotes (>)
         """
 
         user_prompt = f"""

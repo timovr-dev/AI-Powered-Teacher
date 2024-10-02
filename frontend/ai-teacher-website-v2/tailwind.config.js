@@ -1,7 +1,6 @@
+// tailwind.config.js
 module.exports = {
-  content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
-  ],
+  content: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
   theme: {
     extend: {},
   },
@@ -9,4 +8,4 @@ module.exports = {
     require('@tailwindcss/typography'),
     // other plugins
   ],
-}
+};
