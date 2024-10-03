@@ -8,6 +8,7 @@ from typing import List
 import asyncio
 import uvicorn
 import os
+import re
 
 # Additional imports for session management
 from starlette.middleware.sessions import SessionMiddleware
@@ -357,10 +358,31 @@ def extract_text_from_pdf(file_path):
             page_text = page.extract_text()
             if page_text:
                 text += page_text
-        return text
+        # Process the text to fix numbers and specific words
+        fixed_text = fix_arabic_numbers_and_words(text)
+        return fixed_text
     except Exception as e:
         print(f"Error extracting text from PDF: {e}")
         raise
+
+
+def fix_arabic_numbers_and_words(text):
+    # Replace reversed "ريال" with the correct word
+    text = text.replace('لاير', 'ريال')
+
+    # Define Arabic digits
+    arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+    # Regular expression pattern to match sequences of Arabic digits
+    digit_pattern = '[' + arabic_digits + ']+'
+
+    # Function to reverse Arabic digits in a match
+    def reverse_arabic_numbers(match):
+        return match.group(0)[::-1]
+
+    # Replace each sequence of digits with its reversed version
+    fixed_text = re.sub(digit_pattern, reverse_arabic_numbers, text)
+
+    return fixed_text
 
 
 async def create_learning_plan(content):
@@ -379,8 +401,7 @@ async def create_learning_plan(content):
         - small headings
         - tables
         - quotes (>)
-        
-        The text you process is written in Arabic, thus, never change the words, e.g. keep "ريال" as is, do not change it. 
+         
         Always write in Arabic, never write in English.
         """
 
@@ -406,6 +427,7 @@ async def create_learning_plan(content):
         # Remove JSON markdown if present
         if learning_plan.startswith('```json') and learning_plan.endswith('```'):
             learning_plan = learning_plan[7:-3]  # Remove ```json from start and ``` from end
+
 
         return learning_plan
 
