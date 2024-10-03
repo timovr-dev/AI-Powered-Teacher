@@ -29,7 +29,7 @@ class RAGSystem:
         if os.path.exists(embeddings_path):
             # Load existing vectorstore
             self.vectorstore = FAISS.load_local(
-                embeddings_path, embeddings=self.embedding_model
+                embeddings_path, embeddings=self.embedding_model, allow_dangerous_deserialization=True
             )
         else:
             # Initialize empty vectorstore

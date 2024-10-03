@@ -362,6 +362,7 @@ def extract_text_from_pdf(file_path):
         print(f"Error extracting text from PDF: {e}")
         raise
 
+
 async def create_learning_plan(content):
     try:
         system_prompt = """
@@ -378,6 +379,9 @@ async def create_learning_plan(content):
         - small headings
         - tables
         - quotes (>)
+        
+        The text you process is written in Arabic, thus, never change the words, e.g. keep "ريال" as is, do not change it. 
+        Always write in Arabic, never write in English.
         """
 
         user_prompt = f"""
@@ -389,7 +393,7 @@ async def create_learning_plan(content):
         """
 
         completion = models['openai_client'].chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",  # "gpt-4o-mini",
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -403,7 +407,6 @@ async def create_learning_plan(content):
         if learning_plan.startswith('```json') and learning_plan.endswith('```'):
             learning_plan = learning_plan[7:-3]  # Remove ```json from start and ``` from end
 
-        
         return learning_plan
 
     except Exception as e:
