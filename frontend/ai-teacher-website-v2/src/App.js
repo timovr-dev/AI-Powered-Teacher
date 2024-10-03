@@ -17,11 +17,14 @@ import {
   User,
   ArrowLeft,
   ArrowRight,
+  Loader,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+
 
 const App = () => {
   const [config, setConfig] = useState({
@@ -71,7 +74,7 @@ const App = () => {
                     icon={<Sliders size={20} />}
                     label="Configure"
                   />
-                  <NavButton to="/about" icon={<Info size={20} />} label="About" />
+                  <NavButton to="/about" icon={<Info size={20} />} label="About Us" />
                 </div>
               </div>
             </div>
@@ -220,7 +223,7 @@ const HelperWindow = ({
                 ? 'border-b-2 border-blue-600 text-blue-600'
                 : 'text-gray-600 hover:text-blue-600'
             }`}
-        >
+          >
             {tab}
           </button>
         ))}
@@ -264,12 +267,14 @@ const UploadPage = ({
   setUploadedText,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef(null);
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
+  const handleFile = async (file) => {
     if (file) {
       setIsUploading(true);
+      setUploadedFileName(file.name);
       const formData = new FormData();
       formData.append('file', file);
       formData.append('config', JSON.stringify(config));
@@ -289,8 +294,14 @@ const UploadPage = ({
         console.error('Error uploading file:', error);
       } finally {
         setIsUploading(false);
+        setUploadedFileName('');
       }
     }
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    handleFile(file);
   };
 
   const handleUploadButtonClick = () => {
@@ -312,9 +323,28 @@ const UploadPage = ({
     setSelectedText('');
   };
 
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      handleFile(file);
+    }
+  };
+
   return (
     <div
-      className="relative flex flex-col h-full w-full overflow-y-auto"
+      className="relative flex flex-col h-full w-full overflow-hidden"
       onMouseUp={handleMouseUp}
     >
       {!uploadedText && (
@@ -326,17 +356,40 @@ const UploadPage = ({
             onChange={handleFileUpload}
             style={{ display: 'none' }}
           />
-          <button
+          <div
+            className={`border-2 border-dashed border-blue-600 rounded-lg p-8 flex flex-col items-center cursor-pointer transition-colors duration-200 ${
+              isDragging ? 'bg-blue-50' : ''
+            }`}
+            style={{ width: '100%', maxWidth: '600px' }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             onClick={handleUploadButtonClick}
-            className="bg-blue-600 text-white px-8 py-4 rounded-md text-lg hover:bg-blue-500 transition-colors duration-200 flex items-center shadow-md"
           >
-            <Upload size={28} className="mr-2 animate-bounce" />
-            {isUploading ? 'Uploading...' : 'Upload PDF Document'}
-          </button>
-          <p className="mt-6 text-gray-500 text-center max-w-md">
-            Upload a PDF document to create a customized learning plan tailored
-            just for you.
-          </p>
+            <h2 className="text-2xl font-semibold text-gray-700 mb-4">
+              Add Learning Content
+            </h2>
+            <Upload size={64} className="text-blue-600 mb-4" />
+            <p className="text-gray-700 mb-2 text-center">
+              Upload your Learning Content Here
+            </p>
+            <p className="text-gray-500 mb-4">Supported file types: PDF</p>
+            <button
+              onClick={handleUploadButtonClick}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md text-md hover:bg-blue-500 transition-colors duration-200"
+            >
+              BROWSE
+            </button>
+            <p className="mt-2 text-gray-500 text-sm">Max file size: 2MB</p>
+          </div>
+          {isUploading && (
+            <div className="mt-6 flex items-center">
+              <Loader size={24} className="animate-spin text-blue-600 mr-2" />
+              <span className="text-gray-700">
+                Uploading {uploadedFileName}...
+              </span>
+            </div>
+          )}
         </div>
       )}
       {uploadedText && (
@@ -382,6 +435,8 @@ const UploadPage = ({
     </div>
   );
 };
+
+
 
 const HelpChat = ({
   messages,
