@@ -260,6 +260,7 @@ const HelperWindow = ({
   );
 };
 
+
 const UploadPage = ({
   config,
   setSelectedText,
@@ -344,7 +345,7 @@ const UploadPage = ({
 
   return (
     <div
-      className="relative flex flex-col h-full w-full overflow-hidden"
+      className="relative flex flex-col h-full w-full overflow-hidden bg-white"
       onMouseUp={handleMouseUp}
     >
       {!uploadedText && (
@@ -354,49 +355,51 @@ const UploadPage = ({
             accept=".pdf"
             ref={fileInputRef}
             onChange={handleFileUpload}
-            style={{ display: 'none' }}
+            className="hidden"
           />
           <div
-            className={`border-2 border-dashed border-blue-600 rounded-lg p-8 flex flex-col items-center cursor-pointer transition-colors duration-200 ${
-              isDragging ? 'bg-blue-50' : ''
+            className={`border border-gray-200 rounded-lg shadow-sm p-8 flex flex-col items-center cursor-pointer transition-colors duration-300 ${
+              isDragging ? 'bg-blue-50 border-blue-300' : 'bg-white'
             }`}
-            style={{ width: '100%', maxWidth: '600px' }}
+            style={{ width: '100%', maxWidth: '500px' }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={handleUploadButtonClick}
           >
-            <h2 className="text-2xl font-semibold text-gray-700 mb-4">
-              Add Learning Content
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">
+              Upload Learning Content
             </h2>
-            <Upload size={64} className="text-blue-600 mb-4" />
-            <p className="text-gray-700 mb-2 text-center">
+            <div className="bg-blue-100 rounded-full p-6 mb-6">
+              <Upload size={48} className="text-blue-600" />
+            </div>
+            <p className="text-gray-600 mb-4 text-center">
               Upload your Learning Content Here
             </p>
-            <p className="text-gray-500 mb-4">Supported file types: PDF</p>
+            <p className="text-gray-400 mb-6">Supported file types: PDF</p>
             <button
               onClick={handleUploadButtonClick}
-              className="bg-blue-600 text-white px-6 py-2 rounded-md text-md hover:bg-blue-500 transition-colors duration-200"
+              className="bg-blue-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-blue-700 transition-colors duration-300 shadow-sm hover:shadow-md"
             >
-              BROWSE
+              Browse Files
             </button>
-            <p className="mt-2 text-gray-500 text-sm">Max file size: 2MB</p>
+            <p className="mt-4 text-gray-400 text-sm">Max file size: 2MB</p>
           </div>
           {isUploading && (
-            <div className="mt-6 flex items-center">
-              <Loader size={24} className="animate-spin text-blue-600 mr-2" />
-              <span className="text-gray-700">
-                Uploading {uploadedFileName}...
+            <div className="mt-8 flex items-center bg-white border border-gray-200 rounded-lg shadow-sm px-6 py-4">
+              <Loader size={24} className="animate-spin text-blue-600 mr-4" />
+              <span className="text-gray-700 font-medium">
+                Generating custom learning plan based on {uploadedFileName}...
               </span>
             </div>
           )}
         </div>
       )}
       {uploadedText && (
-        <div className="mx-auto p-6 bg-white rounded-lg shadow-md relative mt-6 max-w-4xl w-full">
+        <div className="mx-auto p-8 bg-white border border-gray-200 rounded-lg shadow-sm relative mt-8 max-w-4xl w-full">
           <button
             onClick={handleClearLearningPlan}
-            className="absolute top-4 right-4 bg-red-50 text-red-600 p-2 rounded-full hover:bg-red-100 transition-colors duration-200"
+            className="absolute top-4 right-4 bg-red-50 text-red-600 p-2 rounded-full hover:bg-red-100 transition-colors duration-300"
           >
             <Trash2 size={20} />
           </button>
@@ -435,6 +438,10 @@ const UploadPage = ({
     </div>
   );
 };
+
+
+
+
 
 
 
