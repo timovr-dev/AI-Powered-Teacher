@@ -149,7 +149,7 @@ async def stream_response(request: GenerationRequest):
         print(f"Interests: {request.user_info.interests}")
 
 
-        system_prompt = """You are an AI assistant answering questions based only on the information in these three chunks:
+        system_prompt = """You are an AI assistant answering questions exclusively based only on the information in these three chunks:
 Chunk 1:
 <<CHUNK1>>
 Chunk 2:
@@ -157,7 +157,8 @@ Chunk 2:
 Chunk 3:
 <<CHUNK3>>
 User's question: <<QUESTION>>
-Answer the question using only information from these chunks. If the answer isn't fully contained in the chunks, state that you don't have enough information to respond. Don't use external knowledge or make assumptions."""
+Answer the question using only information from these chunks. If the answer isn't fully contained in the chunks, answer that you don't have enough information to respond. Never use external knowledge. Never make assumptions.
+Answer always in Arabi, never answer in English."""
  
 
         last_user_question = chat_history[-1]['content']
@@ -325,9 +326,10 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         json_file_location = os.path.join('learn_plan', json_filename)
         save_learning_plan_to_json(learning_plan, json_file_location)
 
-
         # Step 4: Create Vectordatabase from learningplan based for RAG application
         models['rag_system'].add_data_to_vectorstore(learning_plan)
+        # Mazen: I'd keep the learning plan, but I'd also add another pdf(s), namely RAG_DB
+        prepare_vector_db()
 
         # Step 5: Return learning plan
         learning_plan_json = json.loads(learning_plan)
@@ -341,6 +343,21 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         print(f'Error in /upload-pdf/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def prepare_vector_db():
+    """
+    In this function, we add the contents of RAG DB files to the vector stor of RAG system
+    :return:
+    """
+    # File location: TODO we may add multiple files in RAG DB and add them all
+    file_location = os.path.join('RAG_DB', "augmented_terms.pdf")
+
+    # Step 1: Extract text from the PDF file
+    pdf_content = extract_text_from_pdf(file_location)
+
+    # Step 2: Create Vector DB for RAG application
+    models['rag_system'].add_data_to_vectorstore(pdf_content)
 
 
 def create_markdown_learning_plan(learning_plan_json):
