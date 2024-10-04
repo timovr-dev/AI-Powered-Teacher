@@ -1,5 +1,6 @@
+############################
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, File, UploadFile, Request
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -23,15 +24,20 @@ import uuid
 from ibm_watsonx_ai.foundation_models import Model
 from prompts_with_examples import *
 
-# RAG imports 
+# RAG imports
 from RAG.RAGApplication import RAGSystem
+
+# Azure Speech SDK import
+import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-speech
 
 # Globally loaded models and components
 models = {}
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
+
 
 class UserInfo(BaseModel):
     explanation_complexity: float
@@ -41,13 +47,20 @@ class UserInfo(BaseModel):
     learning_style: str
     interests: str
 
+
 class GenerationRequest(BaseModel):
     chat_history: List[ChatMessage]
     user_info: UserInfo
 
+
 class ImageRequest(BaseModel):
     prompt: str
     user_info: UserInfo
+
+
+class SynthesizeRequest(BaseModel):
+    text: str
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,11 +73,11 @@ async def lifespan(app: FastAPI):
     }
 
     # Use environment variables or secure methods to handle API keys
-    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  #  "de13a787-3de2-49a5-a5ae-845d49453a95"
+    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "Your ALLAM API Key"
+    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "Your ALLAM Project ID"
     # temp for test poject, because Mazen's project has no more tokens
-    # api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    # project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
+    # api_key = "Your Test API Key"
+    # project_id = "Your Test Project ID"
 
     models['llm'] = Model(
         model_id=model_id,
@@ -80,17 +93,24 @@ async def lifespan(app: FastAPI):
 
     models['openai_client'] = OpenAI(api_key=openai_api_key)
 
-    # RAG system 
+    # RAG system
     embedding_model = "intfloat/multilingual-e5-large"
 
     models['rag_system'] = RAGSystem(embedding_model)
-    
+
+    # Initialize Azure Speech SDK
+    speech_key = os.environ.get('SPEECH_KEY')
+    speech_region = os.environ.get('SPEECH_REGION')
+    speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
+    speech_config.speech_synthesis_voice_name = 'ar-SA-ZariyahNeural'  #  'en-US-AvaMultilingualNeural'  #  'ar-SA-HamedNeural'  # Arabic (Saudi Arabia) male voice  # 'ar-SA-ZariyahNeural' A female Saudi Arabic voice
+    models['speech_config'] = speech_config
 
     print("Server started")
     yield
     # Clean up the ML models and release the resources
     models.clear()
     print("Server shutting down")
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -106,6 +126,7 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
 
 # Updated AsyncIteratorWrapper
 class AsyncIteratorWrapper:
@@ -130,7 +151,7 @@ class AsyncIteratorWrapper:
         else:
             return value
 
-        
+
 @app.post("/help-chat/")
 async def stream_response(request: GenerationRequest):
     try:
@@ -148,7 +169,6 @@ async def stream_response(request: GenerationRequest):
         print(f"Learning Style: {request.user_info.learning_style}")
         print(f"Interests: {request.user_info.interests}")
 
-
         system_prompt = """You are an AI assistant answering questions exclusively based only on the information in these three chunks:
 Chunk 1:
 <<CHUNK1>>
@@ -157,9 +177,9 @@ Chunk 2:
 Chunk 3:
 <<CHUNK3>>
 User's question: <<QUESTION>>
-Answer the question using only information from these chunks. If the answer isn't fully contained in the chunks, answer that you don't have enough information to respond. Never use external knowledge. Never make assumptions.
+Answer the question using only information from these chunks. If the answer isn't fully contained in the chunks, answer that you don't have enough information to respond because you have to answer only based on the underlying information..
+Thus, never use external knowledge to answer. Similarly, never use your own knowledge to answer. Also, never make assumptions. If you cannot answer from the chunks, simply say I don't have enough information to respond because I have to answer only based on the underlying information.  
 Answer always in Arabi, never answer in English."""
- 
 
         last_user_question = chat_history[-1]['content']
         most_similar_chunks = models['rag_system'].retrieve_most_similar_chunks(last_user_question)
@@ -170,12 +190,11 @@ Answer always in Arabi, never answer in English."""
         system_prompt_temp = system_prompt_temp.replace("<<CHUNK2>>", most_similar_chunks[1])
         system_prompt_temp = system_prompt_temp.replace("<<CHUNK3>>", most_similar_chunks[2])
 
-
         prompt = f"<s> [INST] {system_prompt_temp} [/INST] Answer: "
-        print("-"*50)
+        print("-" * 50)
         print(prompt)
-        print("-"*50)
-        
+        print("-" * 50)
+
         # generate response
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -214,8 +233,8 @@ async def stream_response_mazen(request: GenerationRequest):
         # choose one of the system prompts we prepared, i.e. one use-case
 
         # 1. For science, it worked well with user interests
-        # system_prompt = get_science_and_student_interest_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
+        system_prompt = get_science_and_student_interest_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
 
         # 2. For Arabic grammer, we try it first without user interests
         # it worked well without user interests
@@ -235,8 +254,8 @@ async def stream_response_mazen(request: GenerationRequest):
 
         # 3. For Math, we try it first without user interests
         # Status: It worked, Okay
-        system_prompt = get_math_prompt()
-        prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
+        # system_prompt = get_math_prompt()
+        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -258,7 +277,7 @@ async def stream_response_mazen(request: GenerationRequest):
 
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
-        print(f'Error in /streamer/ endpoint: {e}')
+        print(f'Error in /simplify/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -409,7 +428,7 @@ async def create_learning_plan(content):
         from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing 
         200-300 words. Maintain the original structure and order of the content, ensuring that 
         each chunk makes sense to learn in the given sequence.
-        
+
         Always follow this structure in your output: Title in bold, and few lines under it. 
         If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
 
@@ -418,7 +437,9 @@ async def create_learning_plan(content):
         - small headings
         - tables
         - quotes (>)
-         
+        
+        At least, you have to bold the main terms in the text you show.
+
         Always write in Arabic, never write in English.
         """
 
@@ -445,12 +466,12 @@ async def create_learning_plan(content):
         if learning_plan.startswith('```json') and learning_plan.endswith('```'):
             learning_plan = learning_plan[7:-3]  # Remove ```json from start and ``` from end
 
-
         return learning_plan
 
     except Exception as e:
         print(f"Error creating learning plan: {e}")
         raise
+
 
 def save_learning_plan_to_json(learning_plan, output_file):
     try:
@@ -467,8 +488,53 @@ def save_learning_plan_to_json(learning_plan, output_file):
         print(f"Error saving learning plan to JSON: {e}")
         raise
 
+
+# New endpoint for text-to-speech synthesis
+@app.post("/synthesize/")
+async def synthesize_speech(request: SynthesizeRequest):
+    try:
+        text = request.text
+        if not text:
+            return HTTPException(status_code=400, detail="No text provided")
+
+        # Check if the folder "tts_output" exists, if not, create it
+        tts_output = "tts_output"
+        if not os.path.exists(tts_output):
+            os.makedirs(tts_output)
+
+        # Generate a unique filename
+        audio_filename = f"{tts_output}/{uuid.uuid4()}.wav"
+        audio_output_config = speechsdk.audio.AudioOutputConfig(filename=audio_filename)
+        speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=models['speech_config'],
+                                                         audio_config=audio_output_config)
+
+        # Synthesize speech
+        result = speech_synthesizer.speak_text_async(text).get()
+
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            # Read the audio file and return it
+            def iterfile():
+                with open(audio_filename, mode="rb") as file_like:
+                    yield from file_like
+
+            # Remove the audio file after sending it
+            response = StreamingResponse(iterfile(), media_type="audio/wav")
+            response.headers["Content-Disposition"] = f"attachment; filename={audio_filename}"
+            return response
+        else:
+            if result.reason == speechsdk.ResultReason.Canceled:
+                cancellation_details = result.cancellation_details
+                return HTTPException(status_code=500, detail=cancellation_details.reason)
+        return HTTPException(status_code=500, detail="Unknown error occurred")
+    except Exception as e:
+        print(f'Error in /synthesize/ endpoint: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     uvicorn.run(app, host=host, port=port, log_level="info")
 
+
 if __name__ == "__main__":
     run_server()
+############################

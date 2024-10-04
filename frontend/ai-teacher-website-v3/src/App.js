@@ -20,6 +20,8 @@ import {
   Loader,
   Sun,
   Moon,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -72,7 +74,9 @@ const App = () => {
               <div className="flex items-center">
                 <Link to="/" className="flex items-center">
                   <img
-                    src={theme === 'light' ? '/logo_black.png' : '/logo_white.png'}
+                    src={
+                      theme === 'light' ? '/logo_black.png' : '/logo_white.png'
+                    }
                     alt="Logo"
                     className="h-14 w-auto object-contain transition-transform duration-300 ease-in-out hover:scale-105"
                   />
@@ -89,7 +93,7 @@ const App = () => {
                         theme === 'light' ? 'text-gray-800' : 'text-gray-100'
                       }`}
                     >
-                      ALLaM-Powered Teacher
+                      AI-Powered Teacher
                     </span>
                   </div>
                 </Link>
@@ -305,6 +309,7 @@ const HelperWindow = ({
             selectedText={selectedText}
             messages={simplifierMessages}
             setMessages={setSimplifierMessages}
+            simplifiedText={simplifiedText}
             setSimplifiedText={setSimplifiedText}
             theme={theme}
           />
@@ -545,6 +550,7 @@ const UploadPage = ({
             className={`prose lg:prose-lg w-full mt-4 ${
               theme === 'dark' ? 'prose-dark' : ''
             }`}
+            dir="rtl"
           >
             <ReactMarkdown
               children={uploadedText}
@@ -583,7 +589,13 @@ const UploadPage = ({
   );
 };
 
-const HelpChat = ({ messages, setMessages, config, showClearButton = false, theme }) => {
+const HelpChat = ({
+  messages,
+  setMessages,
+  config,
+  showClearButton = false,
+  theme,
+}) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef(null);
@@ -692,16 +704,16 @@ const HelpChat = ({ messages, setMessages, config, showClearButton = false, them
             className="text-gray-500 hover:text-red-500 flex items-center"
           >
             <Trash2 size={16} className="mr-1" />
-            Clear Chat
+            Delete Chat
           </button>
         </div>
       )}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
+      <div className="flex-grow overflow-y-auto p-4 space-y-4" dir="rtl">
         {messages.map((message, index) => (
           <div
             key={index}
             className={`flex ${
-              message.sender === 'user' ? 'justify-end' : 'justify-start'
+              message.sender === 'user' ? 'justify-start' : 'justify-end'
             }`}
           >
             <div
@@ -763,10 +775,11 @@ const HelpChat = ({ messages, setMessages, config, showClearButton = false, them
             disabled={isGenerating}
             rows={1}
             style={{ maxHeight: `${maxHeight}px` }}
+            dir="rtl"
           ></textarea>
           <button
             onClick={handleSendMessage}
-            className="ml-3 text-blue-600 hover:text-blue-800 transition-colors duration-200"
+            className="mr-3 text-blue-600 hover:text-blue-800 transition-colors duration-200"
             disabled={isGenerating}
           >
             <Send size={28} />
@@ -782,12 +795,15 @@ const SimplifierTab = ({
   selectedText,
   messages,
   setMessages,
+  simplifiedText,
   setSimplifiedText,
   theme,
 }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showInputBox, setShowInputBox] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false); // State for speech synthesis
+  const audioRef = useRef(null); // Ref to store the Audio object
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -819,8 +835,25 @@ const SimplifierTab = ({
     }
   }, [inputMessage]);
 
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isGenerating) return;
+
+    // Stop any ongoing speech synthesis
+    if (isSpeaking && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsSpeaking(false);
+    }
 
     const userMessage = inputMessage;
     setInputMessage('');
@@ -882,6 +915,47 @@ const SimplifierTab = ({
     }
   };
 
+  const handleToggleSpeech = async () => {
+    if (isSpeaking) {
+      // Stop the audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current = null;
+      }
+      setIsSpeaking(false);
+    } else {
+      if (simplifiedText) {
+        try {
+          const synthResponse = await fetch('http://localhost:8000/synthesize/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: simplifiedText }),
+          });
+
+          if (synthResponse.ok) {
+            const audioBlob = await synthResponse.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            audio.play();
+            setIsSpeaking(true);
+
+            // Handle when audio ends
+            audio.onended = () => {
+              setIsSpeaking(false);
+              audioRef.current = null;
+            };
+          } else {
+            console.error('Error in synthesizing speech:', synthResponse.statusText);
+          }
+        } catch (error) {
+          console.error('Error during speech synthesis:', error);
+        }
+      }
+    }
+  };
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -890,25 +964,53 @@ const SimplifierTab = ({
   };
 
   const handleClearChat = () => {
+    // Stop any ongoing speech synthesis
+    if (isSpeaking && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsSpeaking(false);
+    }
+
     setMessages([]);
     setInputMessage('');
+    setSimplifiedText('');
     setShowInputBox(false);
   };
 
   return (
     <div className="flex flex-col h-full">
       {messages.length > 0 && (
-        <div className="flex justify-end p-2">
+        <div className="flex justify-between items-center p-2">
           <button
             onClick={handleClearChat}
             className="text-gray-500 hover:text-red-500 flex items-center"
           >
             <Trash2 size={16} className="mr-1" />
-            Clear Chat
+            Delete Chat
+          </button>
+          {/* Button for "Read" / "Stop reading" */}
+          <button
+            onClick={handleToggleSpeech}
+            className={`flex items-center text-gray-500 hover:text-blue-600 ${
+              !simplifiedText ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={!simplifiedText}
+          >
+            {isSpeaking ? (
+              <>
+                <VolumeX size={16} className="mr-1" />
+                Stop reading
+              </>
+            ) : (
+              <>
+                <Volume2 size={16} className="mr-1" />
+                Read
+              </>
+            )}
           </button>
         </div>
       )}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
+      <div className="flex-grow overflow-y-auto p-4 space-y-4" dir="rtl">
         {messages.length === 0 && !showInputBox && (
           <div className="flex flex-col items-center justify-center h-full">
             <MousePointerClick size={48} className="text-gray-300 mb-4" />
@@ -921,7 +1023,7 @@ const SimplifierTab = ({
           <div
             key={index}
             className={`flex ${
-              message.sender === 'user' ? 'justify-end' : 'justify-start'
+              message.sender === 'user' ? 'justify-start' : 'justify-end'
             }`}
           >
             <div
@@ -984,10 +1086,11 @@ const SimplifierTab = ({
               disabled={isGenerating}
               rows={1}
               style={{ maxHeight: `${maxHeight}px` }}
+              dir="rtl"
             ></textarea>
             <button
               onClick={handleSendMessage}
-              className="ml-3 text-blue-600 hover:text-blue-800 transition-colors duration-200"
+              className="mr-3 text-blue-600 hover:text-blue-800 transition-colors duration-200"
               disabled={isGenerating}
             >
               <Send size={28} />
@@ -1060,7 +1163,7 @@ const ImageGenerationTab = ({
   };
 
   return (
-    <div className="p-6 flex flex-col h-full">
+    <div className="p-6 flex flex-col h-full" dir="rtl">
       <div className="flex items-center">
         <textarea
           ref={textareaRef}
@@ -1074,10 +1177,11 @@ const ImageGenerationTab = ({
           }`}
           rows={1}
           style={{ maxHeight: `${maxHeight}px` }}
+          dir="rtl"
         ></textarea>
         <button
           onClick={handleGenerateImage}
-          className="ml-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-500 transition-colors duration-200 shadow-md flex items-center"
+          className="mr-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-500 transition-colors duration-200 shadow-md flex items-center"
           disabled={isGenerating}
         >
           {isGenerating ? (
