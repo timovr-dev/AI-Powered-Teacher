@@ -1,0 +1,9 @@
+# Backend
+backend/RAG/__pycache__/
+backend/__pycache__/
+backend/learn_plan/
+backend/pdf_documents/
+backend/rag_vectorstore/
+
+# Frontend
+frontend/ai-teacher-website-v3/node_modules/
