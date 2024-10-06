@@ -362,7 +362,6 @@ const UploadPage = ({
         const response = await fetch('http://localhost:8000/upload-pdf/', {
           method: 'POST',
           body: formData,
-          credentials: 'include', // Added credentials
         });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -644,7 +643,6 @@ const HelpChat = ({
           })),
           user_info: config,
         }),
-        credentials: 'include', // Added credentials
       });
 
       if (!response.ok) {
@@ -875,7 +873,6 @@ const SimplifierTab = ({
           })),
           user_info: config,
         }),
-        credentials: 'include', // Added credentials
       });
 
       if (!response.ok) {
@@ -934,7 +931,6 @@ const SimplifierTab = ({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: simplifiedText }),
-            credentials: 'include', // Added credentials
           });
 
           if (synthResponse.ok) {
@@ -1150,7 +1146,6 @@ const ImageGenerationTab = ({
           prompt: prompt,
           user_info: config,
         }),
-        credentials: 'include', // Added credentials
       });
 
       if (!response.ok) {
@@ -1447,3 +1442,5 @@ const AboutPage = ({ theme }) => {
     </div>
   );
 };
+
+export default App;
