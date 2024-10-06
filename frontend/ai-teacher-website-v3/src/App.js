@@ -1219,12 +1219,15 @@ const ImageGenerationTab = ({
         </button>
       </div>
       {generatedImage && (
-        <div className="mt-6">
-          <img
-            src={generatedImage}
-            alt="Generated"
-            className="w-full rounded-lg shadow-md"
-          />
+        <div
+            className="mt-6 overflow-y-auto"
+            style={{ maxHeight: '800px' }} // You can adjust '400px' to your desired max height
+        >
+            <img
+                src={generatedImage}
+                alt="Generated"
+                className="w-full rounded-lg shadow-md"
+            />
         </div>
       )}
     </div>
@@ -1447,3 +1450,5 @@ const AboutPage = ({ theme }) => {
     </div>
   );
 };
+
+export default App;

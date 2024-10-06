@@ -105,7 +105,7 @@ async def lifespan(app: FastAPI):
     speech_key = os.environ.get('SPEECH_KEY')
     speech_region = os.environ.get('SPEECH_REGION')
     speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
-    speech_config.speech_synthesis_voice_name = 'ar-SA-ZariyahNeural'  #  'en-US-AvaMultilingualNeural'  #  'ar-SA-HamedNeural'  # Arabic (Saudi Arabia) male voice  # 'ar-SA-ZariyahNeural' A female Saudi Arabic voice
+    speech_config.speech_synthesis_voice_name = 'ar-SA-ZariyahNeural'  # 'en-US-AvaMultilingualNeural'  #  'ar-SA-HamedNeural'  # Arabic (Saudi Arabia) male voice  # 'ar-SA-ZariyahNeural' A female Saudi Arabic voice
     models['speech_config'] = speech_config
 
     print("Server started")
@@ -236,12 +236,12 @@ async def stream_response_mazen(request: GenerationRequest):
         # choose one of the system prompts we prepared, i.e. one use-case
 
         # 1. For science, it worked well with user interests
-        # system_prompt = get_science_and_student_interest_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
+        system_prompt = get_science_and_student_interest_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
 
         # 1.A For science, it worked well with user interests
-        system_prompt = get_science_and_student_interest_with_marks_prompt()
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! You must generate for each word its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ. Never generate any word without its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
+        # system_prompt = get_science_and_student_interest_with_marks_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! You must generate for each word its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ. Never generate any word without its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(request.user_info.interests)}[/INST]"""
 
         # 2. For Arabic grammer, we try it first without user interests
         # it worked well without user interests
@@ -444,7 +444,7 @@ async def create_learning_plan(content):
         - small headings
         - tables
         - quotes (>)
-        
+
         At least, you have to bold the main terms in the text you show.
 
         Always write in Arabic, never write in English.

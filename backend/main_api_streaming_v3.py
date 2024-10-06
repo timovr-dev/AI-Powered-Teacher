@@ -30,7 +30,7 @@ from RAG.RAGApplication2 import RAGSystem
 from langchain.embeddings import SentenceTransformerEmbeddings  # Import the embedding model
 
 # Azure Speech SDK import
-#import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-speech
+import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-speech
 
 # Globally loaded models and components
 models = {}
@@ -94,12 +94,12 @@ async def lifespan(app: FastAPI):
 
     # Initialize Azure Speech SDK
 
-    #speech_key = os.environ.get('SPEECH_KEY')
-    #speech_region = os.environ.get('SPEECH_REGION')
-    #speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
-    #speech_config.speech_synthesis_voice_name = 'ar-SA-ZariyahNeural'
+    speech_key = os.environ.get('SPEECH_KEY')
+    speech_region = os.environ.get('SPEECH_REGION')
+    speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
+    speech_config.speech_synthesis_voice_name = 'ar-SA-ZariyahNeural'
 
-    #models['speech_config'] = speech_config
+    models['speech_config'] = speech_config
 
     ## Load the embedding model globally
     embedding_model_name = "intfloat/multilingual-e5-large"
@@ -204,8 +204,10 @@ Chunk 2:
 Chunk 3:
 <<CHUNK3>>
 User's question: <<QUESTION>>
-Answer the question using only information from these chunks. If the answer isn't fully contained in the chunks, answer that you don't have enough information to respond because you have to answer only based on the underlying information..
-Thus, never use external knowledge to answer. Similarly, never use your own knowledge to answer. Also, never make assumptions. If you cannot answer from the chunks, simply say I don't have enough information to respond because I have to answer only based on the underlying information.  
+Answer the question using only information from these chunks. 
+If the answer isn't fully contained in the chunks, answer the following: ""  you don't have enough information to respond because you have to answer only based on the underlying information..
+Thus, never use external knowledge to answer. Similarly, never use your own knowledge to answer. Also, never make assumptions. 
+If you cannot answer from the chunks, simply say I don't have enough information to respond because I have to answer only based on the underlying information.  
 Answer always in Arabi, never answer in English."""
 
         last_user_question = chat_history[-1]['content']
@@ -259,9 +261,34 @@ async def stream_response_mazen(request: Request, generation_request: Generation
 
         # choose one of the system prompts we prepared, i.e. one use-case
 
+        # 1. For science, it worked well with user interests
+        system_prompt = get_science_and_student_interest_prompt()
+        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
+
         # 1.A For science, it worked well with user interests
-        system_prompt = get_science_and_student_interest_with_marks_prompt()
-        prompt = f"""{system_prompt}Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! You must generate for each word its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ. Never generate any word without its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ{chat_history[:-1]}{formatted_question}User interest: {str(generation_request.user_info.interests)}[/INST]"""
+        # system_prompt = get_science_and_student_interest_with_marks_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! You must generate for each word its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ. Never generate any word without its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
+
+        # 2. For Arabic grammer, we try it first without user interests
+        # it worked well without user interests
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}"""
+
+        # Now, let's try it with user interests:
+        # 2.A. user interests only passed in system prompt, not in examples
+        # As expected, user interests were ignored because it did not exit in the examples
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}"""
+
+        # 2.B. user interests passed in system prompt, and existed in examples
+        # status: It worked perfectly
+        # system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}"""
+
+        # 3. For Math, we try it first without user interests
+        # Status: It worked, Okay
+        # system_prompt = get_math_prompt()
+        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -376,6 +403,8 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         rag_system = RAGSystem(embedding_model, embeddings_path=rag_embeddings_path)
 
         rag_system.add_data_to_vectorstore(learning_plan)
+        # Mazen: I'd keep the learning plan, but I'd also add another pdf, namely RAG_DB as REF
+        prepare_vector_db(rag_system=rag_system)
 
         # Step 5: Return learning plan
         learning_plan_json = json.loads(learning_plan)
@@ -388,6 +417,22 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         print(f'Error in /upload-pdf/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def prepare_vector_db(rag_system):
+    """
+    In this function, we add the contents of RAG DB files to the vector stor of RAG system
+    :return:
+    """
+    # File location: TODO when text classifier is ready, we load the corresponding RAG DB PDF
+    file_location = os.path.join('RAG_DB', "augmented_terms.pdf")
+
+    # Step 1: Extract text from the PDF file
+    pdf_content = extract_text_from_pdf(file_location)
+
+    # Step 2: Create Vector DB for RAG application
+    # models['rag_system'].add_data_to_vectorstore(pdf_content)
+    rag_system.add_data_to_vectorstore(pdf_content)
 
 
 def create_markdown_learning_plan(learning_plan_json):
