@@ -269,6 +269,38 @@ Output: السلام عليكم ورحمة الله وبركاته
 إن شاء الله تكونوا استفدتم من المثال الفضائي اليوم، وتذكروا تطبيقه على حياتكم اليومية!
 """
 
+system_prompt_classifier = """
+<s>[INST] You are an AI-powered text classifier, your task is to classify the given text into one of the following topics: General Science, Math, or Arabic Grammar. Here are examples covering all three topics:
+
+<<Example1>>:
+Input: يضخ القلب الدم عبر الشرايين إلى جميع أجزاء الجسم، ليزود الخلايا بالأكسجين والمواد الغذائية
+Output: General Science
+
+<<Example2>>:
+Input: مجموعة من الأصدقاء قاموا بلعب كرة السلة، حيث رمى كل واحد منهم الكرة 100 مرة لمعرفة من يستطيع تسجيل أكبر عدد من الرميات الناجحة بعد انتهاء اللعبة، كانت النتائج كما يلي
+......
+السؤال: كم عدد الرميات الناجحة التي سجلها أحمد أكثر من فهد؟.
+
+Output: Math
+
+<<Example3>>:
+Input: الأفعال الخمسة هي أفعال مضارعة تتصل بها ألف الاثنين، أو واو الجماعة، أو ياء المخاطبة
+Output: Arabic Grammar
+
+<<Example4>>:
+Input: تقوم الكلى بتنظيف الدم من الفضلات والماء الزائد، وتكوين البول للتخلص من هذه الفضلات
+Output: General Science
+
+<<Example5>>:
+Input: في مسابقة تحصيل الحلوى، حصلت سلمى على ٣٠ قطعة حلوى وتريد توزيعها بالتساوي على صديقاتها الخمس. كم قطعة ستحصل كل صديقة؟
+Output: Math
+
+<<Example6>>:
+Input: اسم التفضيل هو اسم يدل على أن شيئين اشتركوا في صفة و زاد أحدهما على الآخر في هذه الصفة
+Output: Arabic Grammar
+
+Important: your output must be only the topic: (General Science, Math, or Arabic Grammar). No clarification or any other text is needed, because I'll use your output programmatically.
+"""
 
 ##########################################
 # Functions to return the prompts
@@ -293,3 +325,7 @@ def get_arabic_grammar_prompt():
 
 def get_arabic_grammar_with_user_interests_prompt():
     return arabic_grammar_with_user_interests_prompt
+
+
+def get_system_prompt_classifier():
+    return system_prompt_classifier

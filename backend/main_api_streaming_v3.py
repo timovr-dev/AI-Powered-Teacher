@@ -35,6 +35,10 @@ import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-sp
 # Globally loaded models and components
 models = {}
 
+# Global system prompt
+# This is the default, wil be adapted after each uploaded PDF
+classified_system_prompt = get_science_and_student_interest_prompt()
+
 
 class ChatMessage(BaseModel):
     role: str
@@ -208,7 +212,7 @@ Answer the question using only information from these chunks.
 If the answer isn't fully contained in the chunks, answer the following: ""  you don't have enough information to respond because you have to answer only based on the underlying information..
 Thus, never use external knowledge to answer. Similarly, never use your own knowledge to answer. Also, never make assumptions. 
 If you cannot answer from the chunks, simply say I don't have enough information to respond because I have to answer only based on the underlying information.  
-Answer always in Arabi, never answer in English."""
+Answer always in Arabic, never answer in English."""
 
         last_user_question = chat_history[-1]['content']
         most_similar_chunks = rag_system.retrieve_most_similar_chunks(last_user_question)
@@ -387,6 +391,8 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
 
         # Step 1: Extract text from the PDF file
         pdf_content = extract_text_from_pdf(file_location)
+        # Step 1.A: Classify system prompt
+        classify_system_prompt(pdf_content=pdf_content)
 
         # Step 2: Send the text to the OpenAI API
         learning_plan = await create_learning_plan(pdf_content)
@@ -433,6 +439,25 @@ def prepare_vector_db(rag_system):
     # Step 2: Create Vector DB for RAG application
     # models['rag_system'].add_data_to_vectorstore(pdf_content)
     rag_system.add_data_to_vectorstore(pdf_content)
+
+
+def classify_system_prompt(pdf_content):
+    """
+    This functions classifies the given pdf_content into the corresponding system prompt.
+    The global classified_system_prompt will be set as a result.
+    :return:
+    """
+    system_prompt = get_system_prompt_classifier()
+    prompt = f"""{system_prompt}{"Now, follow the given examples and classify the following content accordingly!"}{pdf_content}[/INST]"""
+    topic = models['llm'].generate(prompt=prompt)['results'][0]['generated_text']
+
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+    print("Prompt Classifier: {}".format(prompt))
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+
+    print("###############################")
+    print("Classified Topic: {}".format(topic))
+    print("###############################")
 
 
 def create_markdown_learning_plan(learning_plan_json):
