@@ -1,34 +1,24 @@
 # General packages
 import os
-from typing import List
+from typing import List, Tuple
 
 # RAG packages
 from PyPDF2 import PdfReader
-from langchain.embeddings import SentenceTransformerEmbeddings
-from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import FAISS
+from langchain.schema import Document
+from langchain.embeddings import SentenceTransformerEmbeddings
 
 class RAGSystem:
-    def __init__(self, embedding_model, embeddings_path: str = None):
+    def __init__(self, embedding_model):
         """
-        Initializes the RAGSystem with the specified embedding model and embeddings path.
+        Initializes the RAGSystem with the specified embedding model.
 
         Parameters:
-        embedding_model: An instance of the embedding model.
-        embeddings_path (str): Path to save or load the embeddings (vectorstore).
+        model_name (str): The name of the embedding model to use.
         """
+        #self.embedding_model = SentenceTransformerEmbeddings(model_name=model_name)
         self.embedding_model = embedding_model
-        self.embeddings_path = embeddings_path
-
-        # Initialize or load vectorstore
-        if embeddings_path and os.path.exists(embeddings_path):
-            # Load existing vectorstore
-            self.vectorstore = FAISS.load_local(
-                embeddings_path, embeddings=self.embedding_model, allow_dangerous_deserialization=True
-            )
-        else:
-            # Initialize empty vectorstore
-            self.vectorstore = None  # Will be created when adding documents
 
     def _get_pdf_text(self, pdf_path: str) -> str:
         """
@@ -43,7 +33,9 @@ class RAGSystem:
         text = ""
         pdf_reader = PdfReader(pdf_path)
         for page in pdf_reader.pages:
-            text += page.extract_text() if page.extract_text() else ""
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text
         return text
 
     def _split_text(self, text: str) -> List[str]:
@@ -59,71 +51,139 @@ class RAGSystem:
         chunks = text_splitter.split_text(text)
         return chunks
 
-    def add_document_to_vectorstore(self, pdf_path: str):
+    def create_faiss_from_text(self, pdf_path: str, output_folder_path: str):
         """
-        Adds a PDF document to the vectorstore.
+        Creates a FAISS vector database from a single PDF file and saves it to the specified output folder.
 
         Parameters:
-        pdf_path (str): Path to the PDF document.
+        pdf_path (str): Path to the single PDF file.
+        output_folder_path (str): Path to the output folder where the FAISS vector database will be saved.
         """
-        # Extract text from PDF
+        # Extract text from the PDF
         text = self._get_pdf_text(pdf_path)
-        # Split text into chunks
-        chunks = self._split_text(text)
-        # Embed chunks
-        if self.vectorstore is None:
-            # Create a new vectorstore
-            self.vectorstore = FAISS.from_texts(
-                texts=chunks, embedding=self.embedding_model
-            )
-        else:
-            # Add new documents to existing vectorstore
-            self.vectorstore.add_texts(chunks)
-        # Save vectorstore
-        if self.embeddings_path:
-            self.vectorstore.save_local(self.embeddings_path)
+        if not text:
+            raise ValueError(f"No text could be extracted from the PDF: {pdf_path}")
 
-    def add_data_to_vectorstore(self, plain_text: str):
+        # Split the text into chunks
+        chunks = self._split_text(text)
+        if not chunks:
+            raise ValueError(f"No text chunks were created from the PDF: {pdf_path}")
+
+        # Create a new FAISS vectorstore from the chunks
+        faiss_db = FAISS.from_texts(texts=chunks, embedding=self.embedding_model)
+
+        # Ensure the output directory exists
+        os.makedirs(output_folder_path, exist_ok=True)
+
+        # Save the FAISS vectorstore to the output folder
+        faiss_db.save_local(output_folder_path)
+
+        print(f"FAISS vector database created and saved to: {output_folder_path}")
+
+    def create_faiss_from_text(self, text: str, output_folder_path: str):
         """
-        Adds plain text data to the vectorstore.
+        Creates a FAISS vector database from a text string and saves it to the specified output folder.
 
         Parameters:
-        plain_text (str): The text data to add.
+        text (str): Text of the data that should be stored in the vector database.
+        output_folder_path (str): Path to the output folder where the FAISS vector database will be saved.
         """
-        # Split text into chunks
-        chunks = self._split_text(plain_text)
-        # Embed chunks
-        if self.vectorstore is None:
-            # Create a new vectorstore
-            self.vectorstore = FAISS.from_texts(
-                texts=chunks, embedding=self.embedding_model
-            )
-        else:
-            # Add new documents to existing vectorstore
-            self.vectorstore.add_texts(chunks)
-        # Save vectorstore
-        if self.embeddings_path:
-            self.vectorstore.save_local(self.embeddings_path)
 
-    def retrieve_most_similar_chunks(
-        self, user_question: str, num_chunks: int = 3
+        # Split the text into chunks
+        chunks = self._split_text(text)
+        if not chunks:
+            raise ValueError(f"No text chunks were created from the PDF: {pdf_path}")
+
+        # Create a new FAISS vectorstore from the chunks
+        faiss_db = FAISS.from_texts(texts=chunks, embedding=self.embedding_model)
+
+        # Ensure the output directory exists
+        os.makedirs(output_folder_path, exist_ok=True)
+
+        # Save the FAISS vectorstore to the output folder
+        faiss_db.save_local(output_folder_path)
+
+        print(f"FAISS vector database created and saved to: {output_folder_path}")
+
+
+    def retrieve_top_chunks_from_two_vectorstores(
+        self, path1: str, path2: str, user_question: str, num_chunks: int = 3
     ) -> List[str]:
         """
-        Retrieves the most similar chunks to the user's question.
+        Retrieves the top N most similar chunks from two FAISS vectorstores based on the user's question.
 
         Parameters:
+        path1 (str): Path to the first FAISS vectorstore.
+        path2 (str): Path to the second FAISS vectorstore.
         user_question (str): The user's question.
-        num_chunks (int): Number of chunks to retrieve.
+        num_chunks (int): Number of top chunks to return (default is 3).
 
         Returns:
-        List[str]: List of the most similar chunks.
+        List[str]: List of the top N most similar chunks from both vectorstores.
         """
-        if self.vectorstore is None:
-            raise ValueError(
-                "Vectorstore is empty. Add documents to the vectorstore first."
-            )
-        docs = self.vectorstore.similarity_search(
+        # Load the first vectorstore
+        if not os.path.exists(path1):
+            raise ValueError(f"Vectorstore path1 does not exist: {path1}")
+        vectorstore_a = FAISS.load_local(
+            path1, embeddings=self.embedding_model, allow_dangerous_deserialization=True
+        )
+
+        # Load the second vectorstore
+        if not os.path.exists(path2):
+            raise ValueError(f"Vectorstore path2 does not exist: {path2}")
+        vectorstore_b = FAISS.load_local(
+            path2, embeddings=self.embedding_model, allow_dangerous_deserialization=True
+        )
+
+        # Perform similarity search on both vectorstores with scores
+        docs_a = vectorstore_a.similarity_search_with_score(
             user_question, k=num_chunks
         )
-        chunks = [doc.page_content for doc in docs]
-        return chunks
+        docs_b = vectorstore_b.similarity_search_with_score(
+            user_question, k=num_chunks
+        )
+
+        # Combine the results
+        combined_docs = docs_a + docs_b  # List[Tuple[Document, float]]
+
+        # Sort the combined documents by their similarity scores in descending order
+        combined_docs_sorted = sorted(combined_docs, key=lambda x: x[1], reverse=True)
+
+        # Extract the top N chunks based on the sorted scores
+        top_chunks = [doc.page_content for doc, score in combined_docs_sorted[:num_chunks]]
+
+        return top_chunks
+
+    def retrieve_top_chunks_from_vectorstore(
+        self, path: str, user_question: str, num_chunks: int = 3
+    ) -> List[str]:
+        """
+        Retrieves the top N most similar chunks from a FAISS vectorstore based on the user's question.
+
+        Parameters:
+        path (str): Path to the FAISS vectorstore.
+        user_question (str): The user's question.
+        num_chunks (int): Number of top chunks to return (default is 3).
+
+        Returns:
+        List[str]: List of the top N most similar chunks from the vectorstore.
+        """
+        # Load the vectorstore
+        if not os.path.exists(path):
+            raise ValueError(f"Vectorstore path does not exist: {path}")
+        vectorstore = FAISS.load_local(
+            path, embeddings=self.embedding_model, allow_dangerous_deserialization=True
+        )
+
+        # Perform similarity search with scores
+        docs = vectorstore.similarity_search_with_score(
+            user_question, k=num_chunks
+        )
+
+        # Sort the documents by their similarity scores in descending order
+        docs_sorted = sorted(docs, key=lambda x: x[1], reverse=True)
+
+        # Extract the top N chunks based on the sorted scores
+        top_chunks = [doc.page_content for doc, score in docs_sorted[:num_chunks]]
+
+        return top_chunks
