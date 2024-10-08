@@ -37,7 +37,7 @@ models = {}
 
 # Global system prompt
 # This is the default, wil be adapted after each uploaded PDF
-classified_system_prompt = get_science_and_student_interest_prompt()
+classified_system_prompt = None
 
 
 class ChatMessage(BaseModel):
@@ -242,7 +242,7 @@ Answer always in Arabic, never answer in English."""
 
 
 @app.post("/simplify/")
-async def stream_response_mazen(request: Request, generation_request: GenerationRequest):
+async def stream_simplified_text(request: Request, generation_request: GenerationRequest):
     try:
         chat_history = []
         for message in generation_request.chat_history:
@@ -263,11 +263,11 @@ async def stream_response_mazen(request: Request, generation_request: Generation
 
         formatted_question = f"""<s> [INST] {last_user_instruction} [/INST]"""
 
-        # choose one of the system prompts we prepared, i.e. one use-case
+        # Temp test: choose one of the system prompts we prepared, i.e. one use-case.. DO NOT DROP THESE TESTS
 
         # 1. For science, it worked well with user interests
-        system_prompt = get_science_and_student_interest_prompt()
-        prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
+        # system_prompt = get_science_and_student_interest_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
 
         # 1.A For science, it worked well with user interests
         # system_prompt = get_science_and_student_interest_with_marks_prompt()
@@ -293,6 +293,13 @@ async def stream_response_mazen(request: Request, generation_request: Generation
         # Status: It worked, Okay
         # system_prompt = get_math_prompt()
         # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
+
+        # use the classified system prompt which has been set based on the uploaded content
+        if classified_system_prompt is None:
+            raise ValueError("The uploaded topic is not supported yet by our simplifier!!")
+        else:
+            print("classified_system_prompt will be used!!")
+        prompt = f"""{classified_system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -458,6 +465,17 @@ def classify_system_prompt(pdf_content):
     print("###############################")
     print("Classified Topic: {}".format(topic))
     print("###############################")
+
+    # set the global classified_system_prompt
+    global classified_system_prompt
+    if "General Science" in topic:
+        classified_system_prompt = get_science_and_student_interest_prompt()
+    elif "Arabic Grammar" in topic:
+        classified_system_prompt = get_arabic_grammar_with_user_interests_prompt()
+    elif "Math" in topic:
+        classified_system_prompt = get_math_prompt()
+    else:
+        print("The uploaded topic is not supported yet by our simplifier!!")
 
 
 def create_markdown_learning_plan(learning_plan_json):

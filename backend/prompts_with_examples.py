@@ -270,7 +270,12 @@ Output: السلام عليكم ورحمة الله وبركاته
 """
 
 system_prompt_classifier = """
-<s>[INST] You are an AI-powered text classifier, your task is to classify the given text into one of the following topics: General Science, Math, or Arabic Grammar. Here are examples covering all three topics:
+<s>[INST] You are an AI-powered text classifier, your task is to classify the given text into one of the following topics: General Science, Math, or Arabic Grammar. 
+For General Science: the text will be about the sun, stars, human body, cells, etc. The text will explain the behavior of the contents of such things in science.
+For Arabic Grammar: the text will be about the Arabic Language Grammars, explaining different Grammars in the Arabic Language.
+For Math: the text will be about Math problems to be solved, e.g. the text asks to calculate something by adding, substracting, multiplying or dividing, etc. 
+
+Here are examples covering all three topics:
 
 <<Example1>>:
 Input: يضخ القلب الدم عبر الشرايين إلى جميع أجزاء الجسم، ليزود الخلايا بالأكسجين والمواد الغذائية
@@ -278,7 +283,15 @@ Output: General Science
 
 <<Example2>>:
 Input: مجموعة من الأصدقاء قاموا بلعب كرة السلة، حيث رمى كل واحد منهم الكرة 100 مرة لمعرفة من يستطيع تسجيل أكبر عدد من الرميات الناجحة بعد انتهاء اللعبة، كانت النتائج كما يلي
-......
+
+| **الاسم**  | **عدد الرميات الناجحة** |
+|------------|--------------------------|
+| أحمد       | ٨٨                       |
+| علي        | ٧٨                       |
+| سمار       | ٦٩                       |
+| فهد        | ٤٤                       |
+| بلال       | ٢٢                       |
+
 السؤال: كم عدد الرميات الناجحة التي سجلها أحمد أكثر من فهد؟.
 
 Output: Math
@@ -299,7 +312,9 @@ Output: Math
 Input: اسم التفضيل هو اسم يدل على أن شيئين اشتركوا في صفة و زاد أحدهما على الآخر في هذه الصفة
 Output: Arabic Grammar
 
-Important: your output must be only the topic: (General Science, Math, or Arabic Grammar). No clarification or any other text is needed, because I'll use your output programmatically.
+Important: your output must be only exactly one output, which is the most probable topic for the whole document: (General Science, Math, or Arabic Grammar). 
+Do not give more than one topic as output for the whole document, just one topic which you the think the most probable one.
+No clarification or any other text is needed, because I'll use your output programmatically.
 """
 
 ##########################################
