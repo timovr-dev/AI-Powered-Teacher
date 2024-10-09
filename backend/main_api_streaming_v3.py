@@ -539,8 +539,8 @@ async def create_learning_plan(content):
         
         At least, you have to bold the main terms in the text you show.
 
-        Always write in Arabic, never write in English.
         """
+        #Always write in Arabic, never write in English.
 
         user_prompt = f"""
         Please create a structured learning plan from the following content. Divide the plan into 
@@ -551,7 +551,7 @@ async def create_learning_plan(content):
         """
 
         completion = models['openai_client'].chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system_prompt},
