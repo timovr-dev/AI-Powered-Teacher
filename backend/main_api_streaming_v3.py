@@ -32,12 +32,18 @@ from langchain.embeddings import SentenceTransformerEmbeddings  # Import the emb
 # Azure Speech SDK import
 import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-speech
 
+# Enums
+from enum import Enum
+
 # Globally loaded models and components
 models = {}
 
-# Global system prompt
-# This is the default, wil be adapted after each uploaded PDF
-classified_system_prompt = None
+
+class SystemPrompt(Enum):
+    Unsupported = 1
+    Arabic_Grammar = 2
+    Science = 3
+    Math = 4
 
 
 class ChatMessage(BaseModel):
@@ -107,9 +113,11 @@ async def lifespan(app: FastAPI):
 
     ## Load the embedding model globally
     embedding_model_name = "intfloat/multilingual-e5-large"
-    models['embedding_model'] = SentenceTransformerEmbeddings(
+    embedding_model = SentenceTransformerEmbeddings(
         model_name=embedding_model_name
     )
+
+    models['rag_system'] = RAGSystem(embedding_model)
 
     print("Server started")
     yield
@@ -179,13 +187,6 @@ async def stream_response(request: Request, generation_request: GenerationReques
         print(f"user_id: {user_id}")
         print(f"user_id: {user_folder}")
 
-        # Load per-user vectorstore
-        rag_embeddings_path = os.path.join(user_folder, 'rag_vectorstore')
-
-        # Use the global embedding model
-        embedding_model = models['embedding_model']
-        rag_system = RAGSystem(embedding_model, embeddings_path=rag_embeddings_path)
-
         chat_history = []
         for message in generation_request.chat_history:
             temp_message = {'role': message.role, 'content': message.content}
@@ -215,7 +216,12 @@ If you cannot answer from the chunks, simply say I don't have enough information
 Answer always in Arabic, never answer in English."""
 
         last_user_question = chat_history[-1]['content']
-        most_similar_chunks = rag_system.retrieve_most_similar_chunks(last_user_question)
+
+        # user vectorstore path (learning plan)
+        user_embedding_path = request.session['user_vector_db_path']
+        # ref vectorstore path (External knowledge Ref)
+        ref_knowledge_path = request.session['ref_knowledge_path']
+        most_similar_chunks = models['rag_system'].retrieve_top_chunks_from_two_vectorstores(user_embedding_path, ref_knowledge_path, last_user_question)
 
         # create entire prompt
         system_prompt_temp = system_prompt.replace("<<QUESTION>>", last_user_question)
@@ -248,6 +254,10 @@ async def stream_simplified_text(request: Request, generation_request: Generatio
         for message in generation_request.chat_history:
             temp_message = {'role': message.role, 'content': message.content}
             chat_history.append(temp_message)
+        # if new topic has just been uploaded, keep only the user question in chat_history and reset clear_chat_history
+        if request.session['clear_chat_history']:
+            chat_history = [chat_history[-1]]  # chat_history is a list with one element: user question
+            request.session['clear_chat_history'] = False
 
         # Print user information (optional for debugging)
         print("\nUser Information:")
@@ -263,38 +273,15 @@ async def stream_simplified_text(request: Request, generation_request: Generatio
 
         formatted_question = f"""<s> [INST] {last_user_instruction} [/INST]"""
 
-        # Temp test: choose one of the system prompts we prepared, i.e. one use-case.. DO NOT DROP THESE TESTS
-
-        # 1. For science, it worked well with user interests
-        # system_prompt = get_science_and_student_interest_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
-
-        # 1.A For science, it worked well with user interests
-        # system_prompt = get_science_and_student_interest_with_marks_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! You must generate for each word its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ. Never generate any word without its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
-
-        # 2. For Arabic grammer, we try it first without user interests
-        # it worked well without user interests
-        # system_prompt = get_arabic_grammar_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}"""
-
-        # Now, let's try it with user interests:
-        # 2.A. user interests only passed in system prompt, not in examples
-        # As expected, user interests were ignored because it did not exit in the examples
-        # system_prompt = get_arabic_grammar_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}"""
-
-        # 2.B. user interests passed in system prompt, and existed in examples
-        # status: It worked perfectly
-        # system_prompt = get_arabic_grammar_with_user_interests_prompt()
-        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}"""
-
-        # 3. For Math, we try it first without user interests
-        # Status: It worked, Okay
-        # system_prompt = get_math_prompt()
-        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""
-
         # use the classified system prompt which has been set based on the uploaded content
+        classified_system_prompt = None
+        if request.session['prompt_key'] == SystemPrompt.Science.name:
+            classified_system_prompt = get_science_and_student_interest_prompt()
+        elif request.session['prompt_key'] == SystemPrompt.Arabic_Grammar.name:
+            classified_system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        elif request.session['prompt_key'] == SystemPrompt.Math.name:
+            classified_system_prompt = get_math_prompt()
+
         if classified_system_prompt is None:
             raise ValueError("The uploaded topic is not supported yet by our simplifier!!")
         else:
@@ -399,7 +386,9 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         # Step 1: Extract text from the PDF file
         pdf_content = extract_text_from_pdf(file_location)
         # Step 1.A: Classify system prompt
-        classify_system_prompt(pdf_content=pdf_content)
+        prompt_key, ref_knowledge_path = classify_topic(pdf_content=pdf_content)
+        request.session['prompt_key'] = prompt_key
+        request.session['ref_knowledge_path'] = ref_knowledge_path
 
         # Step 2: Send the text to the OpenAI API
         learning_plan = await create_learning_plan(pdf_content)
@@ -409,21 +398,19 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         json_file_location = os.path.join(user_folder, json_filename)
         save_learning_plan_to_json(learning_plan, json_file_location)
 
-        # Step 4: Create Vectordatabase from learning plan for RAG application
-        # Use the global embedding model
-        embedding_model = models['embedding_model']
-        rag_embeddings_path = os.path.join(user_folder, 'rag_vectorstore')
-        rag_system = RAGSystem(embedding_model, embeddings_path=rag_embeddings_path)
-
-        rag_system.add_data_to_vectorstore(learning_plan)
-        # Mazen: I'd keep the learning plan, but I'd also add another pdf, namely RAG_DB as REF
-        prepare_vector_db(rag_system=rag_system)
+        # Step 4: Create Vector-database from learning plan and save its path in the session
+        user_vector_db_path = os.path.join(user_folder, "user_vector_db")
+        request.session['user_vector_db_path'] = user_vector_db_path
+        models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
 
         # Step 5: Return learning plan
         learning_plan_json = json.loads(learning_plan)
 
         # Step 6: Create a learning plan in a markdown format
         learning_plan_markdown = create_markdown_learning_plan(learning_plan_json)
+
+        # Step 7: At this point, uploading a new topic is succeeded, thus, flag clear_chat_history when simplifying..
+        request.session['clear_chat_history'] = True
 
         # Return the markdown content as a JSON object
         return {"learn-content": learning_plan_markdown}
@@ -432,23 +419,7 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def prepare_vector_db(rag_system):
-    """
-    In this function, we add the contents of RAG DB files to the vector stor of RAG system
-    :return:
-    """
-    # File location: TODO when text classifier is ready, we load the corresponding RAG DB PDF
-    file_location = os.path.join('RAG_DB', "augmented_terms.pdf")
-
-    # Step 1: Extract text from the PDF file
-    pdf_content = extract_text_from_pdf(file_location)
-
-    # Step 2: Create Vector DB for RAG application
-    # models['rag_system'].add_data_to_vectorstore(pdf_content)
-    rag_system.add_data_to_vectorstore(pdf_content)
-
-
-def classify_system_prompt(pdf_content):
+def classify_topic(pdf_content):
     """
     This functions classifies the given pdf_content into the corresponding system prompt.
     The global classified_system_prompt will be set as a result.
@@ -466,16 +437,22 @@ def classify_system_prompt(pdf_content):
     print("Classified Topic: {}".format(topic))
     print("###############################")
 
-    # set the global classified_system_prompt
-    global classified_system_prompt
+    # set the global classified_system_prompt and system_prompt_name
+    prompt_key = None
+    ref_knowledge_path = None
     if "General Science" in topic:
-        classified_system_prompt = get_science_and_student_interest_prompt()
+        prompt_key = SystemPrompt.Science.name
+        ref_knowledge_path = "./RAG_DB/General_Science-VS"
     elif "Arabic Grammar" in topic:
-        classified_system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        prompt_key = SystemPrompt.Arabic_Grammar.name
+        ref_knowledge_path = "./RAG_DB/Arabic_Grammar-VS"
     elif "Math" in topic:
-        classified_system_prompt = get_math_prompt()
+        prompt_key = SystemPrompt.Math.name
+        ref_knowledge_path = "./RAG_DB/Math-VS"
     else:
         print("The uploaded topic is not supported yet by our simplifier!!")
+
+    return prompt_key, ref_knowledge_path
 
 
 def create_markdown_learning_plan(learning_plan_json):
@@ -538,7 +515,7 @@ async def create_learning_plan(content):
         - quotes (>)
         
         At least, you have to bold the main terms in the text you show.
-
+        Always write in Arabic, never write in English.
         """
         #Always write in Arabic, never write in English.
 

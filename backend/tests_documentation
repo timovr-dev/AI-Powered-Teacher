@@ -1,0 +1,30 @@
+# Temp test: choose one of the system prompts we prepared, i.e. one use-case.. DO NOT DROP THESE TESTS
+
+        # 1. For science, it worked well with user interests
+        # system_prompt = get_science_and_student_interest_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
+
+        # 1.A For science, it worked well with user interests
+        # system_prompt = get_science_and_student_interest_with_marks_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! You must generate for each word its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ. Never generate any word without its Arabic diacritical marks (الحركات) ـَ ـِ ـُ ـْ ـّ ـً ـٍ ـٌ"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
+
+        # 2. For Arabic grammer, we try it first without user interests
+        # it worked well without user interests
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}"""
+
+        # Now, let's try it with user interests:
+        # 2.A. user interests only passed in system prompt, not in examples
+        # As expected, user interests were ignored because it did not exit in the examples
+        # system_prompt = get_arabic_grammar_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}"""
+
+        # 2.B. user interests passed in system prompt, and existed in examples
+        # status: It worked perfectly
+        # system_prompt = get_arabic_grammar_with_user_interests_prompt()
+        # prompt = f"""{system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}"""
+
+        # 3. For Math, we try it first without user interests
+        # Status: It worked, Okay
+        # system_prompt = get_math_prompt()
+        # prompt = f"""{system_prompt}{"Now, Your tasks are the following: 1. If the user writes a Math problem, follow the examples you learned to explain the given problem in a very simple Arabic language (Saudi dialect). 2. If the user asks a follow-up question, just answer his question concretely."}{chat_history[:-1]}{formatted_question}"""

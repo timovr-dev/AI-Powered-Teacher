@@ -97,8 +97,8 @@ class PDFVectorStore:
 
 # Example usage
 if __name__ == "__main__":
-    folder_path = "./Arabic_Grammar"  # Replace with your folder path
-    output_path = "./Arabic_Grammar-VS"
+    folder_path = "./Math"  # "./General_Science" # "./Arabic_Grammar"  # Replace with your folder path
+    output_path = "./Math-VS"  # "./General_Science-VS" # "./Arabic_Grammar-VS"
     embedding_model_id = "intfloat/multilingual-e5-large"
 
     # create vector db for the specific folder_path

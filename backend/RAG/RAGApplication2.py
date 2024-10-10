@@ -51,7 +51,7 @@ class RAGSystem:
         chunks = text_splitter.split_text(text)
         return chunks
 
-    def create_faiss_from_text(self, pdf_path: str, output_folder_path: str):
+    def create_faiss_from_pdf(self, pdf_path: str, output_folder_path: str):
         """
         Creates a FAISS vector database from a single PDF file and saves it to the specified output folder.
 
@@ -91,8 +91,6 @@ class RAGSystem:
 
         # Split the text into chunks
         chunks = self._split_text(text)
-        if not chunks:
-            raise ValueError(f"No text chunks were created from the PDF: {pdf_path}")
 
         # Create a new FAISS vectorstore from the chunks
         faiss_db = FAISS.from_texts(texts=chunks, embedding=self.embedding_model)
@@ -146,8 +144,8 @@ class RAGSystem:
         # Combine the results
         combined_docs = docs_a + docs_b  # List[Tuple[Document, float]]
 
-        # Sort the combined documents by their similarity scores in descending order
-        combined_docs_sorted = sorted(combined_docs, key=lambda x: x[1], reverse=True)
+        # Sort the combined documents by their similarity scores in descending order (No, ascending, the lower better)
+        combined_docs_sorted = sorted(combined_docs, key=lambda x: x[1], reverse=False)  # reverse=True)
 
         # Extract the top N chunks based on the sorted scores
         top_chunks = [doc.page_content for doc, score in combined_docs_sorted[:num_chunks]]
