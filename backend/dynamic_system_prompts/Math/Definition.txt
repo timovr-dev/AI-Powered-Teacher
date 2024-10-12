@@ -1,0 +1,1 @@
+the text will be in Arabic language, but it will be explicitly about Math problems to be solved, e.g. the text asks to calculate something by adding, substracting, multiplying or dividing, etc.
