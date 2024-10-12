@@ -22,8 +22,8 @@ def extract_inputs_between_input_output(example_text):
 def build_classifier_system_prompt(all_prompts_dict):
     # Start with the fixed instruction portion
     classifier_system_prompt = """
-<s>[INST] You are an AI-powered text classifier, your task is to classify the given text into one of the following topics: 
-"""
+    <s>[INST] You are an AI-powered text classifier, your task is to classify the given text into only ONE of the following topics: 
+    """
 
     # Add the topic names as classified labels first
     topic_labels = ", ".join(all_prompts_dict.keys())
@@ -39,22 +39,22 @@ def build_classifier_system_prompt(all_prompts_dict):
     # Randomly select 2 examples per topic
     example_count = 1
     for topic, definition_instructions_examples_prompt in all_prompts_dict.items():
-        # Extract only the input text between "Input" and "Output"
         examples = extract_inputs_between_input_output(definition_instructions_examples_prompt[2])
+        # Select 1 example
+        selected_example = random.choice(examples)
 
-        # Select 2 random examples
-        selected_examples = random.sample(examples, 2)
+        # Add the input portion, and then classify to the corresponding topic
+        classifier_system_prompt += f"<<Example{example_count}>>:\n{selected_example.strip()}\nOutput: {topic}\n\n"
+        example_count += 1
 
-        for example in selected_examples:
-            # Add the input portion, and then classify to the corresponding topic
-            classifier_system_prompt += f"<<Example{example_count}>>:\n{example.strip()}\nOutput: {topic}\n\n"
-            example_count += 1
-
-    # Add the final instruction
-    classifier_system_prompt += f"""Important: your output must be only exactly one output, which is the most probable topic for the whole document: ({topic_labels}). 
-    Do not give more than one topic as output for the whole document, just one topic for the whole document.
-    No clarification or any other text is needed, because I'll use your output programmatically.
-    Do not write the word 'Output:', just write one topic from ({topic_labels})."""
+    # Add the final, emphasized instruction
+    classifier_system_prompt += f"""***IMPORTANT INSTRUCTION:***
+        - You must classify the whole text into exactly ONE topic from the following list: ({topic_labels}). 
+        - DO NOT classify sections or individual sentences; provide only ONE topic for the ENTIRE text.
+        - Your output MUST be only one topic from the list. Do not output any other information, clarifications, or explanations.
+        - DO NOT write more than one topic, regardless of multiple sections in the text.
+        - Output format: Only ONE topic from the list, e.g., "{topic_labels.split(', ')[0]}".
+    """
 
     return classifier_system_prompt
 
