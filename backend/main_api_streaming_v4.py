@@ -1,8 +1,8 @@
 ############################
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Response
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import List
@@ -10,6 +10,8 @@ import asyncio
 import uvicorn
 import os
 import re
+import shutil
+
 
 # Additional imports for session management
 from starlette.middleware.sessions import SessionMiddleware
@@ -24,11 +26,12 @@ import requests  # Added for image downloading
 # ALLaM imports
 from ibm_watsonx_ai.foundation_models import Model
 
-from prompts_with_examples import *
+# from prompts_with_examples import *
 
 # RAG imports
 from RAG.RAGApplication2 import RAGSystem
 from langchain.embeddings import SentenceTransformerEmbeddings  # Import the embedding model
+from RAG_DB.learn_material_to_vectordb import PDFVectorStore
 
 # Azure Speech SDK import
 import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-speech
@@ -608,6 +611,107 @@ async def synthesize_speech(request: SynthesizeRequest):
         return HTTPException(status_code=500, detail="Unknown error occurred")
     except Exception as e:
         print(f'Error in /synthesize/ endpoint: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# New endpoint for add new topic
+@app.post("/add-topic/")
+async def add_topic(
+    request: Request,
+    topic_name: str = Form(...),
+    definition: str = Form(...),
+    instruction: str = Form(...),
+    examples: str = Form(...),  # This will be a JSON string
+    references: List[UploadFile] = File(...)
+):
+    try:
+        # Validate inputs
+        errors = {}
+        if not topic_name.strip():
+            errors['topic_name'] = 'Topic Name is required'
+        if not definition.strip():
+            errors['definition'] = 'Definition is required'
+        if not instruction.strip():
+            errors['instruction'] = 'Instruction is required'
+        if not examples.strip():
+            errors['examples'] = 'Examples are required'
+        if not references:
+            errors['references'] = 'At least one reference PDF is required'
+        if errors:
+            return JSONResponse(content={'error': 'Validation errors', 'details': errors}, status_code=400)
+
+        # Sanitize topic_name to prevent directory traversal
+        sanitized_topic_name = "".join(c for c in topic_name if c.isalnum() or c in (' ', '_', '-')).rstrip()
+
+        # Path to dynamic_system_prompts directory
+        DYNAMIC_PROMPTS_DIR = './dynamic_system_prompts'  # Adjust the path if needed
+
+        # Create the new topic directory
+        topic_dir = os.path.join(DYNAMIC_PROMPTS_DIR, sanitized_topic_name)
+        if os.path.exists(topic_dir):
+            return JSONResponse(content={'error': f'Topic "{topic_name}" already exists.'}, status_code=400)
+        try:
+            os.makedirs(topic_dir)
+        except Exception as e:
+            return JSONResponse(content={'error': f'Failed to create topic directory: {str(e)}'}, status_code=500)
+
+        # Save Definition.txt
+        try:
+            with open(os.path.join(topic_dir, 'Definition.txt'), 'w', encoding='utf-8') as f:
+                f.write(definition)
+        except Exception as e:
+            return JSONResponse(content={'error': f'Failed to save Definition.txt: {str(e)}'}, status_code=500)
+
+        # Save Instructions.txt
+        try:
+            with open(os.path.join(topic_dir, 'Instructions.txt'), 'w', encoding='utf-8') as f:
+                f.write(instruction)
+        except Exception as e:
+            return JSONResponse(content={'error': f'Failed to save Instruction.txt: {str(e)}'}, status_code=500)
+
+        # Save Examples.txt in the desired plain text format
+        try:
+            examples_list = json.loads(examples)
+            examples_file_path = os.path.join(topic_dir, 'Examples.txt')
+            with open(examples_file_path, 'w', encoding='utf-8') as f:
+                for example in examples_list:
+                    f.write(f"Input: {example['input']}\n")
+                    f.write(f"Output: {example['output']}\n\n")
+        except Exception as e:
+            return JSONResponse(content={'error': f'Failed to save Examples.txt: {str(e)}'}, status_code=500)
+
+        # Create References directory and save files
+        try:
+            references_dir = os.path.join(topic_dir, 'References')
+            os.makedirs(references_dir)
+            for file in references:
+                file_location = os.path.join(references_dir, file.filename)
+                with open(file_location, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+        except Exception as e:
+            return JSONResponse(content={'error': f'Failed to save reference files: {str(e)}'}, status_code=500)
+
+        # Now, build the vector store from the References PDFs
+        try:
+            # Define the embeddings path
+            references_vs_dir = os.path.join(topic_dir, 'References-VS')
+
+            # Initialize the embedding model
+            embedding_model_id = "intfloat/multilingual-e5-large"
+            embedding_model = SentenceTransformerEmbeddings(model_name=embedding_model_id)
+
+            # Create the vector store
+            vectorstore = PDFVectorStore(embedding_model, embeddings_path=references_vs_dir)
+            vectorstore.add_pdf_folder_to_vectorstore(references_dir)
+
+        except Exception as e:
+            return JSONResponse(content={'error': f'Failed to create vector store for references: {str(e)}'}, status_code=500)
+
+        # Return success message
+        return {"message": f'The topic "{topic_name}" has been added successfully.'}
+
+    except Exception as e:
+        print(f'Error in /add-topic/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
 
