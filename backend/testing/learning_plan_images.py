@@ -83,7 +83,7 @@ def extract_pdf_with_images(pdf_path, images_folder="extracted_images"):
     return extracted_text, image_tags
 
 
-def create_learning_plan(cilent, content):
+def create_learning_plan(client, content):
     try:
         system_prompt = """
         You are an expert curriculum designer. Your task is to create a structured learning plan 
@@ -102,6 +102,8 @@ def create_learning_plan(cilent, content):
         
         At least, you have to bold the main terms in the text you show.
 
+        Secondly, there are in the text image tags for instance [IMAGE_TAG1], [IMAGE_TAG2], ...: 
+        Place the same tags at the exact same position in the content. This is very important!
         """
         #Always write in Arabic, never write in English.
 
@@ -114,7 +116,7 @@ def create_learning_plan(cilent, content):
         """
 
         completion = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -142,7 +144,10 @@ def main():
     content, images = extract_pdf_with_images(pdf_file)
 
     print(content)
-    #create_learning_plan(client, content)
+    print(images)
+    # generate learning plan with image tags
+    learning_plan = create_learning_plan(client, content)
+    print(learning_plan)
 
 
 main()

@@ -1,0 +1,16 @@
+openai 
+
+fastapi
+uvicorn
+ibm-watsonx-ai
+
+sentence-transformers
+langchain
+PyPDF2
+accelerate
+faiss-cpu
+langchain-community
+itsdangerous
+python-multipart
+
+azure-cognitiveservices-speech
