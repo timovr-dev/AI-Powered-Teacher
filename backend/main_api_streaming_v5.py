@@ -26,7 +26,7 @@ import requests  # Added for image downloading
 # ALLaM imports
 from ibm_watsonx_ai.foundation_models import Model
 
-# from prompts_with_examples import *
+from prompts_with_examples import get_general_paraphrasing_prompt
 
 # RAG imports
 from RAG.RAGApplication2 import RAGSystem
@@ -40,18 +40,11 @@ import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-sp
 from enum import Enum
 
 # dynamic prompts
-from dynamic_system_prompts.dynamic_classifier_prompt_builder import get_dynamic_classifier_prompt
+from dynamic_system_prompts.dynamic_classifier_prompt_builder_v5 import get_dynamic_classifier_prompt
 from dynamic_system_prompts.dynamic_system_prompts_builder import build_all_system_prompts
 
 # Globally loaded models and components
 models = {}
-
-
-class SystemPrompt(Enum):
-    Unsupported = 1
-    Arabic_Grammar = 2
-    Science = 3
-    Math = 4
 
 
 class ChatMessage(BaseModel):
@@ -281,18 +274,27 @@ async def stream_simplified_text(request: Request, generation_request: Generatio
 
         formatted_question = f"""<s> [INST] {last_user_instruction} [/INST]"""
 
-        # build all system prompts dynamically
-        topic_dict = build_all_system_prompts(base_folder='./dynamic_system_prompts')
+        # here for General Paraphrasing
+        prompt_key = request.session.get('prompt_key', 'General_Paraphrasing')
 
-        # this is just debugging check, this condition must not apply because the support is dynamic
-        if request.session['prompt_key'] not in topic_dict.keys():
-            raise ValueError("The uploaded topic is not supported yet by our simplifier!!")
+        if prompt_key == "General_Paraphrasing":
+            # Use the general paraphrasing prompt
+            print("General paraphrasing prompt will be used.")
+            general_prompt = get_general_paraphrasing_prompt()
+            prompt = f"{general_prompt} Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly! {formatted_question} User interest: {str(generation_request.user_info.interests)} [/INST]"
+        else:
+            # build all system prompts dynamically
+            topic_dict = build_all_system_prompts(base_folder='./dynamic_system_prompts')
 
-        # set the corresponding system prompt
-        definition_instructions_examples_prompt = topic_dict[request.session['prompt_key']]
-        classified_system_prompt = definition_instructions_examples_prompt[3]
-        print("classified_system_prompt will be used!!")
-        prompt = f"""{classified_system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
+            # this is just debugging check, this condition must not apply because the support is dynamic
+            if request.session['prompt_key'] not in topic_dict.keys():
+                raise ValueError("The uploaded topic is not supported yet by our simplifier!!")
+
+            # set the corresponding system prompt
+            definition_instructions_examples_prompt = topic_dict[request.session['prompt_key']]
+            classified_system_prompt = definition_instructions_examples_prompt[3]
+            print("classified_system_prompt will be used!!")
+            prompt = f"""{classified_system_prompt}{"Now, follow the style of paraphrasing and simplification you learned from the given examples and then answer the following question accordingly!"}{chat_history[:-1]}{formatted_question}{"User interest: " + str(generation_request.user_info.interests)}[/INST]"""
 
         gen = models['llm'].generate_text_stream(prompt=prompt)
 
@@ -419,10 +421,34 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         request.session['clear_chat_history'] = True
 
         # Return the markdown content as a JSON object
-        return {"learn-content": learning_plan_markdown}
+        # return {"learn-content": learning_plan_markdown}
+        # Return learning plan and classified topic
+        return {
+            "learn-content": learning_plan_markdown,
+            "classified_topic": topic
+        }
+
     except Exception as e:
         print(f'Error in /upload-pdf/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get('/topics/')
+def get_topics():
+    topics = get_all_topics('./dynamic_system_prompts')
+    topics.append('General_Paraphrasing')  # Include General_Paraphrasing in the list
+    return {'topics': topics}
+
+
+@app.post('/confirm-topic/')
+async def confirm_topic(request: Request, topic: str = Form(...)):
+    request.session['prompt_key'] = topic.strip()
+    if topic == 'General_Paraphrasing':
+        ref_knowledge_path = "./RAG_DB/General_Reference-VS"
+    else:
+        ref_knowledge_path = get_ref_knowledge_path(path="./dynamic_system_prompts", topic=topic)
+    request.session['ref_knowledge_path'] = ref_knowledge_path
+    return {'message': 'Topic confirmed and session updated.'}
 
 
 def classify_topic(pdf_content):
@@ -435,6 +461,23 @@ def classify_topic(pdf_content):
     prompt = f"""{system_prompt}{"Now, follow the given examples and classify the following content accordingly!"}{pdf_content}[/INST]"""
     topic = models['llm'].generate(prompt=prompt)['results'][0]['generated_text'].strip()
 
+    # these changes for General Paraphrasing feature
+    topic = topic.replace(".", "").strip()
+    # Get the list of known topics
+    known_topics = get_all_topics(base_folder='./dynamic_system_prompts')
+    known_topics.append('General_Paraphrasing')
+
+    # Validate the topic
+    if topic not in known_topics:
+        topic = 'General_Paraphrasing'
+
+    # Set the reference knowledge path
+    if topic == 'General_Paraphrasing':
+        ref_knowledge_path = "./RAG_DB/General_Reference-VS"
+    else:
+        ref_knowledge_path = get_ref_knowledge_path(path="./dynamic_system_prompts", topic=topic)
+    print('ref_knowledge_path: {}'.format(ref_knowledge_path))
+
     print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
     print("Prompt Classifier: {}".format(prompt))
     print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
@@ -443,15 +486,23 @@ def classify_topic(pdf_content):
     print("Classified Topic: {}".format(topic))
     print("###############################")
 
-    # ref_knowledge_path
-    ref_knowledge_path = get_ref_knowledge_path(path="./dynamic_system_prompts", topic=topic)
-    print('ref_knowledge_path: {}'.format(ref_knowledge_path))
     return topic, ref_knowledge_path
+
+
+def get_all_topics(base_folder):
+    topics = []
+    for folder_name in os.listdir(base_folder):
+        if folder_name == '__pycache__':
+            continue
+        full_folder_path = os.path.join(base_folder, folder_name)
+        if os.path.isdir(full_folder_path):
+            topics.append(folder_name)
+    return topics
 
 
 def get_ref_knowledge_path(path, topic):
     for folder_name in os.listdir(path):
-        if folder_name == '__pycache__':
+        if folder_name == '___pycache__':
             continue
         full_folder_path = os.path.join(path, folder_name)
         if not os.path.isdir(full_folder_path):

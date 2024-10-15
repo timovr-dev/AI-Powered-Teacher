@@ -8,3 +8,4 @@ backend/rag_vectorstore/
 # Frontend
 frontend/ai-teacher-website-v3/node_modules/
 frontend/ai-teacher-website-v4/node_modules/
+frontend/ai-teacher-website-v5/node_modules/
