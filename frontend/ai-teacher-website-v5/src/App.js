@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { PlusIcon, UploadIcon } from '@heroicons/react/solid';
 import {
   BrowserRouter as Router,
   Route,
@@ -94,7 +95,7 @@ const App = () => {
                         theme === 'light' ? 'text-gray-800' : 'text-gray-100'
                       }`}
                     >
-                      AI-Powered Teacher
+                      ALLaM-Powered Teacher
                     </span>
                   </div>
                 </Link>
@@ -172,7 +173,7 @@ const App = () => {
               : 'bg-gray-800 text-gray-400'
           } text-center py-4 text-sm`}
         >
-          <p>&copy; 2024 AI-Powered Teacher by MozaicAI Solutions.</p>
+          <p>&copy; 2024 ALLaM-Powered Teacher by MozaicAI Solutions.</p>
         </footer>
       </div>
     </Router>
@@ -496,51 +497,77 @@ const handleConfirmTopic = async () => {
     }
     return {};
   };
-
-  return (
-    <div
-      className={`relative flex flex-col h-full w-full overflow-hidden ${
-        theme === 'light' ? 'bg-white' : 'bg-gray-900'
-      }`}
-      onMouseUp={handleMouseUp}
-    >
-
-      {/* Confirmation Modal */}
+return (
+  <div
+    className={`relative flex flex-col h-full w-full overflow-hidden ${
+      theme === 'light' ? 'bg-white' : 'bg-gray-900'
+    }`}
+    onMouseUp={handleMouseUp}
+  >
+    {/* Confirmation Modal */}
     {showTopicConfirmation && (
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
         <div
-          className={`bg-white rounded-lg p-6 ${
-            theme === 'light' ? 'text-gray-800' : 'bg-gray-800 text-gray-100'
-          }`}
-          style={{ width: '90%', maxWidth: '500px' }}
+          className={`rounded-2xl p-8 ${
+            theme === 'light'
+              ? 'bg-white text-gray-800'
+              : 'bg-gray-800 text-gray-100'
+          } shadow-lg transform transition-all sm:max-w-lg sm:w-full`}
         >
-          <h2 className="text-xl font-semibold mb-4">
+          <h2
+            className={`text-2xl font-bold mb-6 ${
+              theme === 'light' ? 'text-gray-800' : 'text-gray-100'
+            }`}
+          >
             {classifiedTopic !== 'General_Paraphrasing' ? (
-              'ALLAM has classified the PDF you uploaded. Please check, correct it to another topic if needed, and confirm:'
+              'ALLAM has identified a topic for the PDF you uploaded. Please review the topic and adjust it if necessary!'
             ) : (
-              'ALLAM did not find any topic related to the PDF you uploaded. Here are the supported topics (You may ask the System Admin to add materials for this topic), and your PDF will be supported by the general paraphrasing. If you think that the PDF you uploaded belongs to one of the following topics, feel free to choose it, and in any case please confirm.'
+              'ALLAM couldn’t match your PDF with a specific topic. Below are the available topics. If your PDF fits one of them, feel free to select it, or request your teacher to add materials for this new topic!'
             )}
           </h2>
-          <form>
+
+          <form className="space-y-3 max-h-60 overflow-y-auto">
             {topics.map((topic) => (
-              <div key={topic} className="flex items-center mb-2">
+              <label
+                key={topic}
+                className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                  selectedTopic === topic
+                    ? theme === 'light'
+                      ? 'bg-blue-50 border-blue-500'
+                      : 'bg-blue-600 border-blue-500'
+                    : theme === 'light'
+                    ? 'bg-white border-gray-300 hover:bg-gray-50'
+                    : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                }`}
+              >
                 <input
                   type="radio"
-                  id={topic}
                   name="topic"
                   value={topic}
                   checked={selectedTopic === topic}
                   onChange={(e) => setSelectedTopic(e.target.value)}
-                  className="mr-2"
+                  className="hidden"
                 />
-                <label htmlFor={topic}>{topic}</label>
-              </div>
+                <span
+                  className={`ml-2 ${
+                    selectedTopic === topic
+                      ? theme === 'light'
+                        ? 'text-blue-600 font-medium'
+                        : 'text-white font-medium'
+                      : theme === 'light'
+                      ? 'text-gray-800'
+                      : 'text-gray-200'
+                  }`}
+                >
+                  {topic}
+                </span>
+              </label>
             ))}
           </form>
-          <div className="mt-4 flex justify-end">
+          <div className="mt-6 flex justify-end">
             <button
               onClick={handleConfirmTopic}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-500"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-300 font-semibold"
             >
               Confirm
             </button>
@@ -549,153 +576,155 @@ const handleConfirmTopic = async () => {
       </div>
     )}
 
-      {!uploadedText && (
-        <div className="flex flex-col items-center justify-center h-full">
-          <input
-            type="file"
-            accept=".pdf"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <div
-            className={`border rounded-lg shadow-sm p-8 flex flex-col items-center cursor-pointer transition-colors duration-300 ${
-              isDragging
-                ? theme === 'light'
-                  ? 'bg-blue-50 border-blue-300'
-                  : 'border-blue-500'
-                : theme === 'light'
-                ? 'bg-white border-gray-200'
-                : 'bg-gray-800 border-gray-700'
-            }`}
-            style={{
-              width: '100%',
-              maxWidth: '500px',
-              ...(isDragging && theme === 'dark' ? getUploadAreaStyles() : {}),
-            }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={handleUploadButtonClick}
-          >
-            <h2
-              className={`text-3xl font-bold mb-6 ${
-                theme === 'light' ? 'text-gray-800' : 'text-gray-100'
-              }`}
-            >
-              Upload Learning Content
-            </h2>
-            <div
-              className={`${
-                theme === 'light' ? 'bg-blue-100' : 'bg-blue-600'
-              } rounded-full p-6 mb-6`}
-            >
-              <Upload
-                size={48}
-                className={`${
-                  theme === 'light' ? 'text-blue-600' : 'text-white'
-                }`}
-              />
-            </div>
-            <p
-              className={`mb-4 text-center ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-300'
-              }`}
-            >
-              Upload your Learning Content Here
-            </p>
-            <p className="text-gray-400 mb-6">Supported file types: PDF</p>
-            <button
-              onClick={handleUploadButtonClick}
-              className={`${
-                theme === 'light'
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-blue-500 hover:bg-blue-600'
-              } text-white px-8 py-3 rounded-full text-lg font-semibold transition-colors duration-300 shadow-sm hover:shadow-md`}
-            >
-              Browse Files
-            </button>
-            <p className="mt-4 text-gray-400 text-sm">Max file size: 2MB</p>
-          </div>
-          {isUploading && (
-            <div
-              className={`mt-8 flex items-center border rounded-lg shadow-sm px-6 py-4 ${
-                theme === 'light'
-                  ? 'bg-white border-gray-200'
-                  : 'bg-gray-800 border-gray-700'
-              }`}
-            >
-              <Loader size={24} className="animate-spin text-blue-600 mr-4" />
-              <span
-                className={`font-medium ${
-                  theme === 'light' ? 'text-gray-700' : 'text-gray-200'
-                }`}
-              >
-                Generating custom learning plan based on {uploadedFileName}...
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-      {uploadedText && (
+    {!uploadedText && (
+      <div className="flex flex-col items-center justify-center h-full">
+        <input
+          type="file"
+          accept=".pdf"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+        />
         <div
-          className={`mx-auto p-8 border rounded-lg shadow-sm relative mt-8 max-w-4xl w-full ${
-            theme === 'light'
+          className={`border rounded-lg shadow-sm p-8 flex flex-col items-center cursor-pointer transition-colors duration-300 ${
+            isDragging
+              ? theme === 'light'
+                ? 'bg-blue-50 border-blue-300'
+                : 'border-blue-500'
+              : theme === 'light'
               ? 'bg-white border-gray-200'
               : 'bg-gray-800 border-gray-700'
           }`}
+          style={{
+            width: '100%',
+            maxWidth: '500px',
+            ...(isDragging && theme === 'dark' ? getUploadAreaStyles() : {}),
+          }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={handleUploadButtonClick}
         >
-          <button
-            onClick={handleClearLearningPlan}
-            className={`absolute top-4 right-4 ${
-              theme === 'light'
-                ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                : 'bg-red-700 text-red-300 hover:bg-red-600'
-            } p-2 rounded-full transition-colors duration-300`}
-          >
-            <Trash2 size={20} />
-          </button>
-          <div
-            className={`prose lg:prose-lg w-full mt-4 ${
-              theme === 'dark' ? 'prose-dark' : ''
+          <h2
+            className={`text-3xl font-bold mb-6 ${
+              theme === 'light' ? 'text-gray-800' : 'text-gray-100'
             }`}
-            dir="rtl"
           >
-            <ReactMarkdown
-              children={uploadedText}
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code({ node, inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  return !inline && match ? (
-                    <SyntaxHighlighter
-                      style={theme === 'light' ? materialLight : vscDarkPlus}
-                      language={match[1]}
-                      PreTag="div"
-                      {...props}
-                    >
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code
-                      className={`${
-                        theme === 'light'
-                          ? 'bg-gray-100 text-gray-800'
-                          : 'bg-gray-700 text-gray-200'
-                      } rounded px-1`}
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  );
-                },
-              }}
+            Upload Learning Content
+          </h2>
+          <div
+            className={`${
+              theme === 'light' ? 'bg-blue-100' : 'bg-blue-600'
+            } rounded-full p-6 mb-6`}
+          >
+            <Upload
+              size={48}
+              className={`${
+                theme === 'light' ? 'text-blue-600' : 'text-white'
+              }`}
             />
           </div>
+          <p
+            className={`mb-4 text-center ${
+              theme === 'light' ? 'text-gray-600' : 'text-gray-300'
+            }`}
+          >
+            Upload your Learning Content Here
+          </p>
+          <p className="text-gray-400 mb-6">Supported file types: PDF</p>
+          <button
+            onClick={handleUploadButtonClick}
+            className={`${
+              theme === 'light'
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white px-8 py-3 rounded-full text-lg font-semibold transition-colors duration-300 shadow-sm hover:shadow-md`}
+          >
+            Browse Files
+          </button>
+          <p className="mt-4 text-gray-400 text-sm">Max file size: 2MB</p>
         </div>
-      )}
-    </div>
-  );
+        {isUploading && (
+          <div
+            className={`mt-8 flex items-center border rounded-lg shadow-sm px-6 py-4 ${
+              theme === 'light'
+                ? 'bg-white border-gray-200'
+                : 'bg-gray-800 border-gray-700'
+            }`}
+          >
+            <Loader size={24} className="animate-spin text-blue-600 mr-4" />
+            <span
+              className={`font-medium ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-200'
+              }`}
+            >
+              Generating custom learning plan based on {uploadedFileName}...
+            </span>
+          </div>
+        )}
+      </div>
+    )}
+    {uploadedText && (
+      <div
+        className={`mx-auto p-8 border rounded-lg shadow-sm relative mt-8 max-w-4xl w-full ${
+          theme === 'light'
+            ? 'bg-white border-gray-200'
+            : 'bg-gray-800 border-gray-700'
+        }`}
+      >
+        <button
+          onClick={handleClearLearningPlan}
+          className={`absolute top-4 right-4 ${
+            theme === 'light'
+              ? 'bg-red-50 text-red-600 hover:bg-red-100'
+              : 'bg-red-700 text-red-300 hover:bg-red-600'
+          } p-2 rounded-full transition-colors duration-300`}
+        >
+          <Trash2 size={20} />
+        </button>
+        <div
+          className={`prose lg:prose-lg w-full mt-4 ${
+            theme === 'dark' ? 'prose-dark' : ''
+          }`}
+          dir="rtl"
+        >
+          <ReactMarkdown
+            children={uploadedText}
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={theme === 'light' ? materialLight : vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    {...props}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code
+                    className={`${
+                      theme === 'light'
+                        ? 'bg-gray-100 text-gray-800'
+                        : 'bg-gray-700 text-gray-200'
+                    } rounded px-1`}
+
+                  >
+                    {children}
+                  </code>
+                );
+              },
+            }}
+          />
+        </div>
+      </div>
+    )}
+  </div>
+);
+
+
 };
 
 const HelpChat = ({
@@ -1635,7 +1664,9 @@ const AddTopicPage = ({ theme }) => {
                 : theme === 'light'
                 ? 'border-gray-300'
                 : 'border-gray-600'
-            } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
+            } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md ${
+              theme === 'light' ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-100'
+            }`}
           />
           {errors.topicName && (
             <p className="text-red-500 text-sm mt-1">{errors.topicName}</p>
@@ -1660,7 +1691,9 @@ const AddTopicPage = ({ theme }) => {
                 : theme === 'light'
                 ? 'border-gray-300'
                 : 'border-gray-600'
-            } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
+            } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md ${
+              theme === 'light' ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-100'
+            }`}
           ></textarea>
           {errors.definition && (
             <p className="text-red-500 text-sm mt-1">{errors.definition}</p>
@@ -1685,7 +1718,9 @@ const AddTopicPage = ({ theme }) => {
                 : theme === 'light'
                 ? 'border-gray-300'
                 : 'border-gray-600'
-            } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
+            } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md ${
+              theme === 'light' ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-100'
+            }`}
           ></textarea>
           {errors.instruction && (
             <p className="text-red-500 text-sm mt-1">{errors.instruction}</p>
@@ -1722,7 +1757,9 @@ const AddTopicPage = ({ theme }) => {
                       : theme === 'light'
                       ? 'border-gray-300'
                       : 'border-gray-600'
-                  } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
+                  } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md ${
+                    theme === 'light' ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-100'
+                  }`}
                 ></textarea>
                 {errors[`example_input_${index}`] && (
                   <p className="text-red-500 text-sm mt-1">
@@ -1750,7 +1787,9 @@ const AddTopicPage = ({ theme }) => {
                       : theme === 'light'
                       ? 'border-gray-300'
                       : 'border-gray-600'
-                  } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
+                  } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md ${
+                    theme === 'light' ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-100'
+                  }`}
                 ></textarea>
                 {errors[`example_output_${index}`] && (
                   <p className="text-red-500 text-sm mt-1">
@@ -1763,29 +1802,54 @@ const AddTopicPage = ({ theme }) => {
           <button
             type="button"
             onClick={handleAddExample}
-            className="text-blue-600 hover:text-blue-800 transition-colors duration-200"
+            className={`flex items-center mt-2 text-base font-medium ${
+              theme === 'light'
+                ? 'text-blue-600 hover:text-blue-800'
+                : 'text-blue-400 hover:text-blue-600'
+            } transition-colors duration-200`}
           >
+            <PlusIcon className="h-7 w-7 mr-1" />
             Add new Example
           </button>
         </div>
         {/* References */}
         <div className="mb-6">
           <label
-            className={`block text-sm font-medium mb-2 ${
+            className={`block text-lg font-medium mb-2 ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-200'
             }`}
           >
             References (PDF files)
           </label>
-          <input
-            type="file"
-            accept=".pdf"
-            multiple
-            onChange={handleReferencesUpload}
-            className={`mt-1 block w-full text-base ${
-              errors.references ? 'border-red-500' : ''
+          {/* Custom file input */}
+          <label
+            className={`mt-1 inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium cursor-pointer ${
+              theme === 'light'
+                ? 'text-gray-700 bg-white border-gray-300 hover:bg-gray-50'
+                : 'text-gray-200 bg-gray-700 border-gray-600 hover:bg-gray-600'
             }`}
-          />
+          >
+            <UploadIcon className="h-5 w-5 mr-2" />
+            Browse Files
+            <input
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={handleReferencesUpload}
+              className="hidden"
+            />
+          </label>
+          {references.length > 0 && (
+            <div className="mt-2">
+              <p
+                className={`text-sm ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-200'
+                }`}
+              >
+                {references.length} file(s) selected
+              </p>
+            </div>
+          )}
           {errors.references && (
             <p className="text-red-500 text-sm mt-1">{errors.references}</p>
           )}
@@ -1793,7 +1857,7 @@ const AddTopicPage = ({ theme }) => {
         {/* Submit Button */}
         <button
           type="submit"
-          className={`mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-500 transition-colors duration-200`}
+          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-500 transition-colors duration-200"
         >
           Submit
         </button>
@@ -1814,14 +1878,14 @@ const AboutPage = ({ theme }) => {
           theme === 'light' ? 'text-gray-800' : 'text-gray-100'
         }`}
       >
-        About AI-Powered Teacher
+        About ALLaM-Powered Teacher
       </h2>
       <p
         className={`mb-6 leading-relaxed ${
           theme === 'light' ? 'text-gray-700' : 'text-gray-200'
         }`}
       >
-        AI-Powered Teacher is an innovative platform designed to revolutionize
+        ALLaM-Powered Teacher is an innovative platform designed to revolutionize
         the way we learn. By harnessing the power of artificial intelligence, we
         provide personalized, adaptive learning experiences tailored to each
         student's unique needs and learning style.
