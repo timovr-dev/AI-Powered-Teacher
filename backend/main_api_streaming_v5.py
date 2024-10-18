@@ -40,7 +40,7 @@ import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-sp
 from enum import Enum
 
 # dynamic prompts
-from dynamic_system_prompts.dynamic_classifier_prompt_builder_v5 import get_dynamic_classifier_prompt
+from dynamic_system_prompts.dynamic_classifier_prompt_builder import get_dynamic_classifier_prompt
 from dynamic_system_prompts.dynamic_system_prompts_builder import build_all_system_prompts
 
 # Globally loaded models and components

@@ -1,6 +1,6 @@
 ############################
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Response, Form
+from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Response, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
@@ -40,7 +40,7 @@ import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-sp
 from enum import Enum
 
 # dynamic prompts
-from dynamic_system_prompts.dynamic_classifier_prompt_builder_v5 import get_dynamic_classifier_prompt
+from dynamic_system_prompts.dynamic_classifier_prompt_builder import get_dynamic_classifier_prompt
 from dynamic_system_prompts.dynamic_system_prompts_builder import build_all_system_prompts
 
 # Globally loaded models and components
@@ -373,7 +373,7 @@ async def generate_image(request: Request, image_request: ImageRequest):
 
 
 @app.post("/upload-pdf/")
-async def upload_pdf(request: Request, file: UploadFile = File(...)):
+async def upload_pdf(request: Request, background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     try:
         # Get user ID and folder
         user_id = get_user_id(request)
@@ -398,36 +398,39 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         request.session['prompt_key'] = topic.strip()
         request.session['ref_knowledge_path'] = ref_knowledge_path
 
-        # Step 2: Send the text to the OpenAI API
-        learning_plan = await create_learning_plan(pdf_content)
+        # Step 2: Prepare the learning plan as an iterator response
+        openai_response = create_learning_plan(pdf_content)
 
-        # Step 3: Save the learning plan JSON file in the user's folder
-        json_filename = f"{unique_filename}_learnplan.json"
-        json_file_location = os.path.join(user_folder, json_filename)
-        save_learning_plan_to_json(learning_plan, json_file_location)
+        # Collect the learning plan as it's streamed
+        learning_plan_buffer = []
 
-        # Step 4: Create Vector-database from learning plan and save its path in the session
-        user_vector_db_path = os.path.join(user_folder, "user_vector_db")
-        request.session['user_vector_db_path'] = user_vector_db_path
-        models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
+        async def stream_learning_plan():
+            async for chunk in AsyncIteratorWrapper(openai_response):
+                delta = chunk.choices[0].delta
+                content = getattr(delta, 'content', '') or ''
+                learning_plan_buffer.append(content)
+                if content:  # Only yield if content is not empty
+                    yield content
+            # After streaming is complete, create the vector database
+            learning_plan = ''.join(learning_plan_buffer)
+            user_vector_db_path = os.path.join(user_folder, "user_vector_db")
+            request.session['user_vector_db_path'] = user_vector_db_path
+            models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
 
-        # Step 5: Return learning plan
-        learning_plan_json = json.loads(learning_plan)
+        # # Background task to create vector database after streaming
+        # def create_vector_db_task():
+        #     learning_plan = ''.join(learning_plan_buffer)
+        #     user_vector_db_path = os.path.join(user_folder, "user_vector_db")
+        #     request.session['user_vector_db_path'] = user_vector_db_path
+        #     models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
+        #
+        # background_tasks.add_task(create_vector_db_task)
 
-        # Step 6: Create a learning plan in a markdown format
-        learning_plan_markdown = create_markdown_learning_plan(learning_plan_json)
-
-        # Step 7: At this point, uploading a new topic is succeeded, thus, flag clear_chat_history when simplifying..
-        request.session['clear_chat_history'] = True
-
-        # Return the markdown content as a JSON object
-        # return {"learn-content": learning_plan_markdown}
-        # Return learning plan and classified topic
-        return {
-            "learn-content": learning_plan_markdown,
-            "classified_topic": topic
-        }
-
+        # Prepare the response
+        response = StreamingResponse(stream_learning_plan(), media_type="text/plain")
+        response.headers['X-Classified-Topic'] = topic
+        response.headers['Access-Control-Expose-Headers'] = 'X-Classified-Topic'
+        return response
     except Exception as e:
         print(f'Error in /upload-pdf/ endpoint: {e}')
         raise HTTPException(status_code=500, detail=str(e))
@@ -555,7 +558,7 @@ def fix_arabic_numbers_and_words(text):
     return fixed_text
 
 
-async def create_learning_plan(content):
+def create_learning_plan(content):
     try:
         system_prompt = """
         You are an expert curriculum designer. Your task is to create a structured learning plan 
@@ -577,31 +580,40 @@ async def create_learning_plan(content):
         """
         #Always write in Arabic, never write in English.
 
+        # user_prompt = f"""
+        # Please create a structured learning plan from the following content. Divide the plan into
+        # sections of 200-300 words each, maintaining the original content and structure. Generate a JSON structure with the keys 'content_1', 'content_2', ..., 'content_n'. The values should be the sections.
+        #
+        # This is the content:
+        # {content}
+        # """
         user_prompt = f"""
-        Please create a structured learning plan from the following content. Divide the plan into 
-        sections of 200-300 words each, maintaining the original content and structure. Generate a JSON structure with the keys 'content_1', 'content_2', ..., 'content_n'. The values should be the sections.
+                Please create a structured learning plan from the following content. Divide the plan into 
+                sections of 200-300 words each, maintaining the original content and structure.
 
-        This is the content:
-        {content}
-        """
+                This is the content:
+                {content}
+                """
 
-        completion = models['openai_client'].chat.completions.create(
+        openai_response = models['openai_client'].chat.completions.create(
             model="gpt-4o-mini",
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
-            ]
+            ],
+            stream=True
         )
 
-        learning_plan = completion.choices[0].message.content
+        # learning_plan = completion.choices[0].message.content
+        #
+        # # Remove JSON markdown if present
+        # if learning_plan.startswith('```json') and learning_plan.endswith('```'):
+        #     learning_plan = learning_plan[7:-3]  # Remove ```json from start and ```
+        #
+        # return learning_plan
 
-        # Remove JSON markdown if present
-        if learning_plan.startswith('```json') and learning_plan.endswith('```'):
-            learning_plan = learning_plan[7:-3]  # Remove ```json from start and ```
-
-        return learning_plan
-
+        return openai_response  # 'response' is an iterator over the streamed chunks
     except Exception as e:
         print(f"Error creating learning plan: {e}")
         raise

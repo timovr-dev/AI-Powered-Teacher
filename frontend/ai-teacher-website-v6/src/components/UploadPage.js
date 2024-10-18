@@ -27,41 +27,62 @@ const UploadPage = ({
   // Removed local declarations of uploadedText and setUploadedText
   // Removed local declarations of selectedText and setSelectedText
 
-  const handleFile = async (file) => {
-    if (file) {
-      setIsUploading(true);
-      setUploadedFileName(file.name);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('config', JSON.stringify(config));
+// Modify handleFile function in UploadPage.js
+const handleFile = async (file) => {
+  if (file) {
+    setIsUploading(true);
+    setUploadedFileName(file.name);
+    const formData = new FormData();
+    formData.append('file', file);
 
-      try {
-        const response = await fetch('http://localhost:8000/upload-pdf/', {
-          method: 'POST',
-          body: formData,
-          credentials: 'include', // Added credentials
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        const uploadedMarkdown = data['learn-content'];
-        const classifiedTopic = data['classified_topic'];
-        setUploadedText(uploadedMarkdown);
-        setClassifiedTopic(classifiedTopic);
-        setSelectedTopic(classifiedTopic);
-
-        // Fetch topics from backend
-        await fetchTopics();
-        setShowTopicConfirmation(true);
-      } catch (error) {
-        console.error('Error uploading file:', error);
-      } finally {
-        setIsUploading(false);
-        setUploadedFileName('');
+    try {
+      const response = await fetch('http://localhost:8000/upload-pdf/', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      // Get the classified_topic from response headers
+      const classifiedTopicHeader = response.headers.get('X-Classified-Topic');
+      if (classifiedTopicHeader) {
+        setClassifiedTopic(classifiedTopicHeader);
+        setSelectedTopic(classifiedTopicHeader);
+      }
+
+      // **Fetch topics from backend**
+      await fetchTopics();
+      // Show the topic confirmation modal
+      setShowTopicConfirmation(true);
+
+      // Read the response body as a stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      let receivedText = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        receivedText += chunk;
+        setUploadedText(receivedText); // Update state to display streamed content
+      }
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setIsUploading(false);
+      setUploadedFileName('');
     }
-  };
+  }
+};
+
+
+
 
   const fetchTopics = async () => {
     try {
@@ -173,16 +194,28 @@ const UploadPage = ({
             } shadow-lg transform transition-all sm:max-w-lg sm:w-full`}
           >
             <h2
-              className={`text-2xl font-bold mb-6 ${
-                theme === 'light' ? 'text-gray-800' : 'text-gray-100'
-              }`}
-            >
-              {classifiedTopic !== 'General_Paraphrasing' ? (
-                'ALLAM has identified a topic for the PDF you uploaded. Please review the topic and adjust it if necessary!'
-              ) : (
-                'ALLAM couldn’t match your PDF with a specific topic. Below are the available topics. If your PDF fits one of them, feel free to select it, or request your teacher to add materials for this new topic!'
-              )}
-            </h2>
+
+  className={`text-2xl mb-6 ${
+    theme === 'light' ? 'text-gray-800' : 'text-gray-100'
+  }`}
+>
+  {classifiedTopic !== 'General_Paraphrasing' ? (
+    <>
+      ALLAM has identified the topic{' '}
+      <span className="font-bold">{classifiedTopic.replace(/_/g, ' ')}</span>{' '}
+      for the PDF you uploaded. Please review the topic and adjust it if necessary!
+    </>
+  ) : (
+    <>
+      ALLAM couldn’t match your PDF with a specific topic. The default topic{' '}
+      <span className="font-bold">{classifiedTopic.replace(/_/g, ' ')}</span>{' '}
+      has been selected.
+      <br /><br />
+      If your PDF fits one of the topics below, please select it, or request your teacher to add materials for this new topic!
+    </>
+  )}
+</h2>
+
 
             <form className="space-y-3 max-h-60 overflow-y-auto">
               {topics.map((topic) => (

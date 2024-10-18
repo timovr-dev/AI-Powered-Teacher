@@ -56,6 +56,9 @@ def build_classifier_system_prompt(all_prompts_dict):
         - Output format: Only ONE topic from the list, e.g., "{topic_labels.split(', ')[0]}".
     """
 
+    # Add instruction for "General_Paraphrasing"
+    classifier_system_prompt += "\n\nIf the content does not match any of the above topics, classify it as 'General_Paraphrasing'."
+
     return classifier_system_prompt
 
 
