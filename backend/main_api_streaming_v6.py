@@ -590,6 +590,7 @@ def create_learning_plan(content):
         user_prompt = f"""
                 Please create a structured learning plan from the following content. Divide the plan into 
                 sections of 200-300 words each, maintaining the original content and structure.
+                You have to create at least one table in the leanring plan.
 
                 This is the content:
                 {content}

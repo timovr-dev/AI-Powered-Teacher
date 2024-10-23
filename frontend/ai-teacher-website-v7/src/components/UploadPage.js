@@ -4,7 +4,10 @@ import { Upload, Trash2, Loader } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus, materialLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import {
+  vscDarkPlus,
+  materialLight,
+} from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const UploadPage = ({
   config,
@@ -24,65 +27,58 @@ const UploadPage = ({
   const [selectedTopic, setSelectedTopic] = useState('');
   const [showTopicConfirmation, setShowTopicConfirmation] = useState(false);
 
-  // Removed local declarations of uploadedText and setUploadedText
-  // Removed local declarations of selectedText and setSelectedText
+  // Modify handleFile function in UploadPage.js
+  const handleFile = async (file) => {
+    if (file) {
+      setIsUploading(true);
+      setUploadedFileName(file.name);
+      const formData = new FormData();
+      formData.append('file', file);
 
-// Modify handleFile function in UploadPage.js
-const handleFile = async (file) => {
-  if (file) {
-    setIsUploading(true);
-    setUploadedFileName(file.name);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('http://localhost:8000/upload-pdf/', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // Get the classified_topic from response headers
-      const classifiedTopicHeader = response.headers.get('X-Classified-Topic');
-      if (classifiedTopicHeader) {
-        setClassifiedTopic(classifiedTopicHeader);
-        setSelectedTopic(classifiedTopicHeader);
-      }
-
-      // **Fetch topics from backend**
-      await fetchTopics();
-      // Show the topic confirmation modal
-      setShowTopicConfirmation(true);
-
-      // Read the response body as a stream
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-
-      let receivedText = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
+      try {
+        const response = await fetch('http://localhost:8000/upload-pdf/', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const chunk = decoder.decode(value, { stream: true });
-        receivedText += chunk;
-        setUploadedText(receivedText); // Update state to display streamed content
+
+        // Get the classified_topic from response headers
+        const classifiedTopicHeader = response.headers.get('X-Classified-Topic');
+        if (classifiedTopicHeader) {
+          setClassifiedTopic(classifiedTopicHeader);
+          setSelectedTopic(classifiedTopicHeader);
+        }
+
+        // **Fetch topics from backend**
+        await fetchTopics();
+        // Show the topic confirmation modal
+        setShowTopicConfirmation(true);
+
+        // Read the response body as a stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+
+        let receivedText = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          const chunk = decoder.decode(value, { stream: true });
+          receivedText += chunk;
+          setUploadedText(receivedText); // Update state to display streamed content
+        }
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      } finally {
+        setIsUploading(false);
+        setUploadedFileName('');
       }
-
-    } catch (error) {
-      console.error('Error uploading file:', error);
-    } finally {
-      setIsUploading(false);
-      setUploadedFileName('');
     }
-  }
-};
-
-
-
+  };
 
   const fetchTopics = async () => {
     try {
@@ -194,29 +190,34 @@ const handleFile = async (file) => {
             } shadow-lg transform transition-all sm:max-w-lg sm:w-full`}
           >
             <h2
-
-  className={`text-2xl mb-6 ${
-    theme === 'light' ? 'text-gray-800' : 'text-gray-100'
-  }`}
->
-  {classifiedTopic !== 'General_Paraphrasing' ? (
-    <>
-      ALLAM has identified the topic{' '}
-      <span className="font-bold">{classifiedTopic.replace(/_/g, ' ')}</span>{' '}
-      for the PDF you uploaded. Please review the topic and adjust it if necessary!
-    </>
-  ) : (
-    <>
-      ALLAM couldn’t match your PDF with a specific topic. The default topic{' '}
-      <span className="font-bold">{classifiedTopic.replace(/_/g, ' ')}</span>{' '}
-      has been selected.
-      <br /><br />
-      If your PDF fits one of the topics below, please select it, or request your teacher to add materials for this new topic!
-    </>
-  )}
-</h2>
-
-
+              className={`text-2xl mb-6 ${
+                theme === 'light' ? 'text-gray-800' : 'text-gray-100'
+              }`}
+            >
+              {classifiedTopic !== 'General_Paraphrasing' ? (
+                <>
+                  ALLAM has identified the topic{' '}
+                  <span className="font-bold">
+                    {classifiedTopic.replace(/_/g, ' ')}
+                  </span>{' '}
+                  for the PDF you uploaded. Please review the topic and adjust it
+                  if necessary!
+                </>
+              ) : (
+                <>
+                  ALLAM couldn’t match your PDF with a specific topic. The
+                  default topic{' '}
+                  <span className="font-bold">
+                    {classifiedTopic.replace(/_/g, ' ')}
+                  </span>{' '}
+                  has been selected.
+                  <br />
+                  <br />
+                  If your PDF fits one of the topics below, please select it, or
+                  request your teacher to add materials for this new topic!
+                </>
+              )}
+            </h2>
             <form className="space-y-3 max-h-60 overflow-y-auto">
               {topics.map((topic) => (
                 <label
@@ -227,8 +228,8 @@ const handleFile = async (file) => {
                         ? 'bg-blue-50 border-blue-500'
                         : 'bg-blue-600 border-blue-500'
                       : theme === 'light'
-                      ? 'bg-white border-gray-300 hover:bg-gray-50'
-                      : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
+                        ? 'bg-white border-gray-300 hover:bg-gray-50'
+                        : 'bg-gray-700 border-gray-600 hover:bg-gray-600'
                   }`}
                 >
                   <input
@@ -246,8 +247,8 @@ const handleFile = async (file) => {
                           ? 'text-blue-600 font-medium'
                           : 'text-white font-medium'
                         : theme === 'light'
-                        ? 'text-gray-800'
-                        : 'text-gray-200'
+                          ? 'text-gray-800'
+                          : 'text-gray-200'
                     }`}
                   >
                     {topic}
@@ -284,8 +285,8 @@ const handleFile = async (file) => {
                   ? 'bg-blue-50 border-blue-300'
                   : 'border-blue-500'
                 : theme === 'light'
-                ? 'bg-white border-gray-200'
-                : 'bg-gray-800 border-gray-700'
+                  ? 'bg-white border-gray-200'
+                  : 'bg-gray-800 border-gray-700'
             }`}
             style={{
               width: '100%',
@@ -408,6 +409,108 @@ const handleFile = async (file) => {
                     </code>
                   );
                 },
+                blockquote: ({ node, children, ...props }) => (
+                  <blockquote
+                    className={`border-l-4 pl-4 italic my-4 ${
+                      theme === 'light'
+                        ? 'bg-blue-50 border-blue-500 text-blue-900'
+                        : 'bg-blue-700 border-blue-500 text-white'
+                    }`}
+                  >
+                    {children}
+                  </blockquote>
+                ),
+                table: ({ node, children, ...props }) => (
+                  <table
+                    className={`min-w-full border-collapse ${
+                      theme === 'light' ? 'bg-white' : 'bg-gray-800'
+                    }`}
+                    {...props}
+                  >
+                    {children}
+                  </table>
+                ),
+                thead: ({ node, children, ...props }) => (
+                  <thead
+                    className={`${
+                      theme === 'light' ? 'bg-blue-100' : 'bg-blue-700'
+                    }`}
+                    {...props}
+                  >
+                    {children}
+                  </thead>
+                ),
+                tbody: ({ node, children, ...props }) => (
+                  <tbody {...props}>{children}</tbody>
+                ),
+                tr: ({ node, children, ...props }) => (
+                  <tr
+                    className={`${
+                      theme === 'light'
+                        ? 'hover:bg-blue-50'
+                        : 'hover:bg-blue-600'
+                    }`}
+                    style={{ cursor: 'default' }}
+                    {...props}
+                  >
+                    {children}
+                  </tr>
+                ),
+                th: ({ node, children, ...props }) => (
+                  <th
+                    className={`px-4 py-2 border ${
+                      theme === 'light'
+                        ? 'border-blue-200 text-gray-800'
+                        : 'border-blue-700 text-white'
+                    } text-left font-semibold`}
+                    {...props}
+                  >
+                    {children}
+                  </th>
+                ),
+                td: ({ node, children, ...props }) => (
+                  <td
+                    className={`px-4 py-2 border ${
+                      theme === 'light'
+                        ? 'border-blue-200 text-gray-800'
+                        : 'border-blue-700 text-gray-200'
+                    }`}
+                    {...props}
+                  >
+                    {children}
+                  </td>
+                ),
+                h1: ({ node, children, ...props }) => (
+                  <h1
+                    className={`text-3xl font-bold mt-8 mb-4 ${
+                      theme === 'light' ? 'text-gray-800' : 'text-gray-100'
+                    }`}
+                    {...props}
+                  >
+                    {children}
+                  </h1>
+                ),
+                h2: ({ node, children, ...props }) => (
+                  <h2
+                    className={`text-2xl font-bold mt-6 mb-4 ${
+                      theme === 'light' ? 'text-gray-800' : 'text-gray-100'
+                    }`}
+                    {...props}
+                  >
+                    {children}
+                  </h2>
+                ),
+                h3: ({ node, children, ...props }) => (
+                  <h3
+                    className={`text-xl font-semibold mt-4 mb-2 ${
+                      theme === 'light' ? 'text-gray-800' : 'text-gray-100'
+                    }`}
+                    {...props}
+                  >
+                    {children}
+                  </h3>
+                ),
+                // Other custom components can be added here
               }}
             >
               {uploadedText}
