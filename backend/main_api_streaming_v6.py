@@ -416,15 +416,8 @@ async def upload_pdf(request: Request, background_tasks: BackgroundTasks, file: 
             user_vector_db_path = os.path.join(user_folder, "user_vector_db")
             request.session['user_vector_db_path'] = user_vector_db_path
             models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
-
-        # # Background task to create vector database after streaming
-        # def create_vector_db_task():
-        #     learning_plan = ''.join(learning_plan_buffer)
-        #     user_vector_db_path = os.path.join(user_folder, "user_vector_db")
-        #     request.session['user_vector_db_path'] = user_vector_db_path
-        #     models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
-        #
-        # background_tasks.add_task(create_vector_db_task)
+            # Uploading a new topic is succeeded, thus, flag clear_chat_history when simplifying
+            request.session['clear_chat_history'] = True
 
         # Prepare the response
         response = StreamingResponse(stream_learning_plan(), media_type="text/plain")
