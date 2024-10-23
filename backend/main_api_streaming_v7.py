@@ -453,7 +453,7 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
             # request.session['user_vector_db_path'] = user_vector_db_path
             user_dict[user_id]['user_vector_db_path'] = user_vector_db_path
             models['rag_system'].create_faiss_from_text(learning_plan, user_vector_db_path)
-            # Uploading a new topic is succeeded, thus, flag clear_chat_history when simplifying..
+            # Uploading a new topic is succeeded, thus, flag clear_chat_history when simplifying
             user_dict[user_id]['clear_chat_history'] = True
 
         # Prepare the response
