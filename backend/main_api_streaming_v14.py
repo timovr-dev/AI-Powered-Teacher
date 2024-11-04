@@ -674,27 +674,46 @@ def fix_arabic_numbers_and_words(text):
 
 def create_learning_plan(content):
     try:
+        # system_prompt = """
+        # You are an expert curriculum designer. Your task is to create a structured learning plan
+        # from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing
+        # 200-300 words. Maintain the original structure and order of the content, ensuring that
+        # each chunk makes sense to learn in the given sequence.
+        # The first chunk must be always your own short introduction about the content,
+        # and the last chunk must be always your own short summary about the content.
+        # Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks.
+        #
+        # Always follow this structure in your output: Title in bold, and few lines under it.
+        # If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
+        #
+        # Use in the learning plan the following mark down components:
+        # - bold text
+        # - small headings
+        # - tables
+        # - quotes (>)
+        #
+        # At least, you have to bold the main terms in the text you show.
+        # If images are in the markdown file, you will see them with for instance "![0_image_0.png](0_image_0.png)",
+        # then you must integrate all those images in the learning plan.
+        # Always write in Arabic, never write in English.
+        # """
         system_prompt = """
-        You are an expert curriculum designer. Your task is to create a structured learning plan 
-        from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing 
-        200-300 words. Maintain the original structure and order of the content, ensuring that 
-        each chunk makes sense to learn in the given sequence.
-        The first chunk must be always your own short introduction about the content, 
-        and the last chunk must be always your own short summary about the content. 
-        Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks. 
+        You are an expert curriculum designer. Your task is to create a structured learning plan from the given content, and you must use **markdown** to highlight key elements. Always structure the content into logical sections, each containing 200-300 words, and keep the original sequence intact for coherent learning.
 
-        Always follow this structure in your output: Title in bold, and few lines under it. 
-        If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
+**Important Guidelines:**
+1. **Introduction and Summary**: Begin with a short introduction of the content, written by you, and end with a short summary, also written by you. These sections should clearly indicate that they are your own text, using a distinct markdown format.
+2. **Chunk Separation**: Use the separator `\n\n---\n\n` to split between content chunks.
+3. **Use Markdown Features**:
+   - **Bold**: Highlight main terms using bold text.
+   - **Headings**: Use small headings to organize information.
+   - **Tables**: Include at least one table to display data clearly.
+   - **Quotes**: Use blockquotes to emphasize important points.
+4. **Images**: If there are images in the markdown file, shown like this `![image_name](image_name)`, you must include them in the learning plan. Ensure the images are meaningfully integrated into the corresponding section, and explain their relevance.
+5. **Language**: Always write in **Arabic**; do not use any English.
+6. **Integration Example**: If you add your own text, display it under the respective section, clearly marking it as additional content, so the user knows it’s not part of the original material.
 
-        Use in the learning plan the following mark down components:
-        - bold text
-        - small headings
-        - tables
-        - quotes (>)
-        
-        At least, you have to bold the main terms in the text you show.
-        If images are in the markdown file you will see it with for instance "![0_image_0.png](0_image_0.png)" integrated it as well. Use all images in the learning plan that are also in the content.
-        Always write in Arabic, never write in English.
+Ensure the content is engaging, well-organized, and visually appealing using the specified markdown components.
+
         """
         #Always write in Arabic, never write in English.
 
