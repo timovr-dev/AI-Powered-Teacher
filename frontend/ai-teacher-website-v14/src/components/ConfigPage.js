@@ -70,7 +70,7 @@ const ConfigPage = ({ config, setConfig, theme }) => {
         </div>
 
         {/* Explanation Complexity (Modified from Occupation) */}
-        <div>
+        <div className="hidden">
           <label
             className={`block text-sm font-medium mb-2 ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-200'

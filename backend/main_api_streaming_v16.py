@@ -411,8 +411,20 @@ async def generate_image(request: Request, image_request: ImageRequest):
 
 
 @app.post("/upload-pdf/")
-async def upload_pdf(request: Request, file: UploadFile = File(...)):
+async def upload_pdf(request: Request, file: UploadFile = File(...), user_info: str = Form(None)):
     try:
+        # Parse user_info
+        user_info_dict = json.loads(user_info) if user_info else {}
+
+        # Print user information (optional for debugging)
+        print("\nUser Information from Upload Page:")
+        print(f"Explanation Complexity: {user_info_dict['explanation_complexity']}")
+        print(f"Teaching Style: {user_info_dict['teaching_style']}")
+        print(f"Occupation: {user_info_dict['occupation']}")
+        print(f"Learning Goal: {user_info_dict['learning_goal']}")
+        print(f"Learning Style: {user_info_dict['learning_style']}")
+        print(f"Interests: {user_info_dict['interests']}")
+
         # Get user ID and folder
         user_id = get_user_id(request)
         user_folder = get_user_folder(user_id)
@@ -451,7 +463,8 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
             image_obj.save(image_path)
 
         # Step 2: Prepare the learning plan as an iterator response
-        openai_response = create_learning_plan(pdf_content)
+        # pass user info to create learning plan accordingly
+        openai_response = create_learning_plan(pdf_content, user_info_dict)
 
         # Collect the learning plan as it's streamed
         learning_plan_buffer = []
@@ -671,33 +684,37 @@ def fix_arabic_numbers_and_words(text):
     return fixed_text
 
 
-def create_learning_plan(content):
+def create_learning_plan(content, user_info_dict):
     try:
-        # system_prompt = """
-        # You are an expert curriculum designer. Your task is to create a structured learning plan
-        # from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing
-        # 200-300 words. Maintain the original structure and order of the content, ensuring that
-        # each chunk makes sense to learn in the given sequence.
-        # The first chunk must be always your own short introduction about the content,
-        # and the last chunk must be always your own short summary about the content.
-        # Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks.
-        #
-        # Always follow this structure in your output: Title in bold, and few lines under it.
-        # If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
-        #
-        # Use in the learning plan the following mark down components:
-        # - bold text
-        # - small headings
-        # - tables
-        # - quotes (>)
-        #
-        # At least, you have to bold the main terms in the text you show.
-        # If images are in the markdown file, you will see them with for instance "![0_image_0.png](0_image_0.png)",
-        # then you must integrate all those images in the learning plan.
-        # Always write in Arabic, never write in English.
-        # """
-        system_prompt = """
+        teaching_style = user_info_dict.get('teaching_style', 'Neutral')
+        explanation_complexity = user_info_dict.get('explanation_complexity', 'Middle School (Ages 11-14)')
+
+        # Descriptions
+        teaching_styles_descriptions = {
+            'Neutral': 'Provide clear and concise explanations without added emotional tone.',
+            'Enthusiastic': 'Inject excitement and energy to engage the learner.',
+            'Socratic': 'Use questions that stimulate critical thinking.',
+            'Strict': 'Focus on discipline and precision in explanations.'
+        }
+
+        explanation_complexities_descriptions = {
+            'Primary School (Ages 5-11)': 'Use simple language and basic concepts.',
+            'Middle School (Ages 11-14)': 'Introduce slightly more complex ideas.',
+            'High School (Ages 14-18)': 'Incorporate detailed concepts and terminology.',
+            'Undergraduate (Masters, Early Phd)': 'Include advanced concepts and detailed analysis.'
+        }
+
+        # Instructions
+        teaching_style_instruction = teaching_styles_descriptions.get(teaching_style, '')
+        explanation_complexity_instruction = explanation_complexities_descriptions.get(explanation_complexity, '')  # not used now
+
+        # system prompt
+        system_prompt = f"""
         You are an expert curriculum designer. Your task is to create a structured learning plan from the given content, and you must use **markdown** to highlight key elements. Always structure the content into logical sections, each containing 200-300 words, and keep the original sequence intact for coherent learning.
+        
+        Adjust your teaching style based on the following:
+Teaching Style:
+{teaching_style_instruction}
 
 **Important Guidelines:**
 1. **Introduction and Summary**: Begin with a short introduction of the content, written by you, and end with a short summary, also written by you. These sections should clearly indicate that they are your own text, using a distinct markdown format.
@@ -714,15 +731,7 @@ def create_learning_plan(content):
 Ensure the content is engaging, well-organized, and visually appealing using the specified markdown components.
 
         """
-        #Always write in Arabic, never write in English.
 
-        # user_prompt = f"""
-        # Please create a structured learning plan from the following content. Divide the plan into
-        # sections of 200-300 words each, maintaining the original content and structure. Generate a JSON structure with the keys 'content_1', 'content_2', ..., 'content_n'. The values should be the sections.
-        #
-        # This is the content:
-        # {content}
-        # """
         user_prompt = f"""
                 Please create a structured learning plan from the following content. Divide the plan into 
                 sections of 200-300 words each, maintaining the original content and structure.

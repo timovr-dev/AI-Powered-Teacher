@@ -411,7 +411,8 @@ const FreeTextQuizPage = ({ theme }) => {
                             <p className={`font-bold ${gradeColor}`}>
                               التقدير: {grade}
                             </p>
-                            <p className="text-black">تفسير التقدير: {explanation}</p>
+                            <p className={theme === 'light' ? 'text-black' : 'text-white'}>
+                            تفسير التقدير: {explanation}</p>
                           </div>
                         );
                       })()}

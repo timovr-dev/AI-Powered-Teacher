@@ -3,7 +3,6 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile, Request, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from typing import List
@@ -37,9 +36,6 @@ from RAG_DB.learn_material_to_vectordb import PDFVectorStore
 # Azure Speech SDK import
 import azure.cognitiveservices.speech as speechsdk  # azure-cognitiveservices-speech
 
-# pdf extraction 
-from marker.convert import convert_single_pdf
-from marker.models import load_all_models
 
 # dynamic prompts
 from dynamic_system_prompts.dynamic_classifier_prompt_builder import get_dynamic_classifier_prompt
@@ -124,10 +120,8 @@ async def lifespan(app: FastAPI):
     openai_api_key = os.environ.get('OPENAI_API_KEY')
     models['openai_client'] = OpenAI(api_key=openai_api_key)
 
-    # load pdf extraction models
-    models['markdown'] = load_all_models()
-
     # Initialize Azure Speech SDK
+
     speech_key = os.environ.get('SPEECH_KEY')
     speech_region = os.environ.get('SPEECH_REGION')
     speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
@@ -151,7 +145,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Add session middleware
 secret_key = os.environ.get('SESSION_SECRET_KEY', 'default-secret-key')  # Replace with a secure key
@@ -411,8 +404,20 @@ async def generate_image(request: Request, image_request: ImageRequest):
 
 
 @app.post("/upload-pdf/")
-async def upload_pdf(request: Request, file: UploadFile = File(...)):
+async def upload_pdf(request: Request, file: UploadFile = File(...), user_info: str = Form(None)):
     try:
+        # Parse user_info
+        user_info_dict = json.loads(user_info) if user_info else {}
+
+        # Print user information (optional for debugging)
+        print("\nUser Information from Upload Page:")
+        print(f"Explanation Complexity: {user_info_dict['explanation_complexity']}")
+        print(f"Teaching Style: {user_info_dict['teaching_style']}")
+        print(f"Occupation: {user_info_dict['occupation']}")
+        print(f"Learning Goal: {user_info_dict['learning_goal']}")
+        print(f"Learning Style: {user_info_dict['learning_style']}")
+        print(f"Interests: {user_info_dict['interests']}")
+
         # Get user ID and folder
         user_id = get_user_id(request)
         user_folder = get_user_folder(user_id)
@@ -433,25 +438,17 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         # request.session['learn_content_path'] = file_location
         user_dict[user_id]['learn_content_path'] = file_location
 
-        # Step 1: Extract text and images from the PDF file
-        pdf_content, images, out_meta = convert_single_pdf(file_location, models['markdown'])
-
+        # Step 1: Extract text from the PDF file
+        pdf_content = extract_text_from_pdf(file_location)
         # Step 1.A: Classify system prompt
         topic, ref_knowledge_path = classify_topic(pdf_content=pdf_content)
         request.session['prompt_key'] = topic.strip()
         # request.session['ref_knowledge_path'] = ref_knowledge_path
         user_dict[user_id]['ref_knowledge_path'] = ref_knowledge_path
 
-        # Save images to static directory
-        user_images_folder = os.path.join('static', 'user_images', user_id)
-        os.makedirs(user_images_folder, exist_ok=True)
-
-        for image_name, image_obj in images.items():
-            image_path = os.path.join(user_images_folder, image_name)
-            image_obj.save(image_path)
-
         # Step 2: Prepare the learning plan as an iterator response
-        openai_response = create_learning_plan(pdf_content)
+        # pass user info to create learning plan accordingly
+        openai_response = create_learning_plan(pdf_content, user_info_dict)
 
         # Collect the learning plan as it's streamed
         learning_plan_buffer = []
@@ -488,9 +485,6 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         response = StreamingResponse(stream_learning_plan(), media_type="text/plain")
         response.headers['X-Classified-Topic'] = topic
         response.headers['Access-Control-Expose-Headers'] = 'X-Classified-Topic'
-        # Add the user_id to the response headers
-        response.headers['X-User-ID'] = user_id
-        response.headers['Access-Control-Expose-Headers'] = 'X-Classified-Topic, X-User-ID'
         return response
     except Exception as e:
         print(f'Error in /upload-pdf/ endpoint: {e}')
@@ -671,67 +665,75 @@ def fix_arabic_numbers_and_words(text):
     return fixed_text
 
 
-def create_learning_plan(content):
+def create_learning_plan(content, user_info_dict):
     try:
-        # system_prompt = """
-        # You are an expert curriculum designer. Your task is to create a structured learning plan
-        # from the given content. When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing
-        # 200-300 words. Maintain the original structure and order of the content, ensuring that
-        # each chunk makes sense to learn in the given sequence.
-        # The first chunk must be always your own short introduction about the content,
-        # and the last chunk must be always your own short summary about the content.
-        # Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks.
-        #
-        # Always follow this structure in your output: Title in bold, and few lines under it.
-        # If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
-        #
-        # Use in the learning plan the following mark down components:
-        # - bold text
-        # - small headings
-        # - tables
-        # - quotes (>)
-        #
-        # At least, you have to bold the main terms in the text you show.
-        # If images are in the markdown file, you will see them with for instance "![0_image_0.png](0_image_0.png)",
-        # then you must integrate all those images in the learning plan.
-        # Always write in Arabic, never write in English.
-        # """
-        system_prompt = """
-        You are an expert curriculum designer. Your task is to create a structured learning plan from the given content, and you must use **markdown** to highlight key elements. Always structure the content into logical sections, each containing 200-300 words, and keep the original sequence intact for coherent learning.
+        teaching_style = user_info_dict.get('teaching_style', 'Neutral')
+        explanation_complexity = user_info_dict.get('explanation_complexity', 'Middle School (Ages 11-14)')
 
-**Important Guidelines:**
-1. **Introduction and Summary**: Begin with a short introduction of the content, written by you, and end with a short summary, also written by you. These sections should clearly indicate that they are your own text, using a distinct markdown format.
-2. **Chunk Separation**: Use the separator `\n\n---\n\n` to split between content chunks.
-3. **Use Markdown Features**:
-   - **Bold**: Highlight main terms using bold text.
-   - **Headings**: Use small headings to organize information.
-   - **Tables**: Include at least one table to display data clearly.
-   - **Quotes**: Use blockquotes to emphasize important points.
-4. **Images**: If there are images in the markdown file, shown like this `![image_name](image_name)`, you must include them in the learning plan. Ensure the images are meaningfully integrated into the corresponding section, and explain their relevance.
-5. **Language**: Always write in **Arabic**; do not use any English.
-6. **Integration Example**: If you add your own text, display it under the respective section, clearly marking it as additional content, so the user knows it’s not part of the original material.
+        # Descriptions
+        teaching_styles_descriptions = {
+            'Neutral': 'Provide clear and concise explanations without added emotional tone.',
+            'Enthusiastic': 'Inject excitement and energy to engage the learner.',
+            'Socratic': 'Use questions that stimulate critical thinking.',
+            'Strict': 'Focus on discipline and precision in explanations.'
+        }
 
-Ensure the content is engaging, well-organized, and visually appealing using the specified markdown components.
+        explanation_complexities_descriptions = {
+            'Primary School (Ages 5-11)': 'Use simple language and basic concepts.',
+            'Middle School (Ages 11-14)': 'Introduce slightly more complex ideas.',
+            'High School (Ages 14-18)': 'Incorporate detailed concepts and terminology.',
+            'Undergraduate (Masters, Early Phd)': 'Include advanced concepts and detailed analysis.'
+        }
 
-        """
-        #Always write in Arabic, never write in English.
+        # Instructions
+        teaching_style_instruction = teaching_styles_descriptions.get(teaching_style, '')
+        explanation_complexity_instruction = explanation_complexities_descriptions.get(explanation_complexity, '')  # not used now
 
-        # user_prompt = f"""
-        # Please create a structured learning plan from the following content. Divide the plan into
-        # sections of 200-300 words each, maintaining the original content and structure. Generate a JSON structure with the keys 'content_1', 'content_2', ..., 'content_n'. The values should be the sections.
-        #
-        # This is the content:
-        # {content}
-        # """
-        user_prompt = f"""
-                Please create a structured learning plan from the following content. Divide the plan into 
-                sections of 200-300 words each, maintaining the original content and structure.
-                Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks.
-                You have to create at least one table in the learning plan.
+        # System Prompt
+        system_prompt = f"""
+                You are an expert curriculum designer. Your task is to create a structured learning plan 
+                from the given content. 
+                
+                Adjust your teaching style based on the following:
+Teaching Style:
+{teaching_style_instruction}
+                
+                When you are writing the content use markdown format to highlighted important words. You can use (bold, italic, tables, blockquotes or lists). The plan should be divided into logical sections, each containing 
+                200-300 words. Maintain the original structure and order of the content, ensuring that 
+                each chunk makes sense to learn in the given sequence.
+                The first chunk must be always your own short introduction about the content, 
+                and the last chunk must be always your own short summary about the content. 
+                Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks. 
 
-                This is the content:
-                {content}
+                Always follow this structure in your output: Title in bold, and few lines under it. 
+                If you decide to add any text from your own, show it in a different format, under corresponding titles to let user know its yours, not the original.
+
+                Use in the learning plan the following mark down components:
+                - bold text
+                - small headings
+                - tables
+                - quotes (>)
+
+                At least, you have to bold the main terms in the text you show.
+                Always write in Arabic, never write in English.
                 """
+
+        user_prompt = f"""
+                        Please create a structured learning plan from the following content. Divide the plan into 
+                        sections of 200-300 words each, maintaining the original content and structure.
+                        Important: Always split between the chunks using the following separator: "\n\n---\n\n", because I'll use this to get the chunks.
+                        You have to create at least one table in the learning plan.
+
+                        This is the content:
+                        {content}
+                        """
+
+#         user_prompt = f"""
+# Please create a structured learning plan from the following content. Divide the plan into sections of 200-300 words each, maintaining the original content and structure.
+#
+# This is the content:
+# {content}
+# """
 
         openai_response = models['openai_client'].chat.completions.create(
             model="gpt-4o",
@@ -743,15 +745,8 @@ Ensure the content is engaging, well-organized, and visually appealing using the
             stream=True
         )
 
-        # learning_plan = completion.choices[0].message.content
-        #
-        # # Remove JSON markdown if present
-        # if learning_plan.startswith('```json') and learning_plan.endswith('```'):
-        #     learning_plan = learning_plan[7:-3]  # Remove ```json from start and ```
-        #
-        # return learning_plan
-
         return openai_response  # 'response' is an iterator over the streamed chunks
+
     except Exception as e:
         print(f"Error creating learning plan: {e}")
         raise
