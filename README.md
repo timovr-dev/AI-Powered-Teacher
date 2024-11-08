@@ -59,6 +59,7 @@ Follow these steps to set up and run the project:
 5. Run the main script with the FastAPI endpoint:
 
     ```bash
+    cd /path/to/AI-Power-Teacher/backend
     python main_api_streaming_V15.py
     ```
 
