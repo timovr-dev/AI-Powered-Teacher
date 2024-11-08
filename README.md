@@ -22,6 +22,7 @@ Run the following commands to set up and run the React frontend:
 
 ```bash
 # Step 1: Install dependencies
+cd ./frontend/ai-teacher-website-v15
 npm install
 
 # Step 2: Start the development server (last version V15)
