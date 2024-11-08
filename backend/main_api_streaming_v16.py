@@ -727,6 +727,7 @@ Teaching Style:
 4. **Images**: If there are images in the markdown file, shown like this `![image_name](image_name)`, you must include them in the learning plan. Ensure the images are meaningfully integrated into the corresponding section, and explain their relevance.
 5. **Language**: Always write in **Arabic**; do not use any English.
 6. **Integration Example**: If you add your own text, display it under the respective section, clearly marking it as additional content, so the user knows it’s not part of the original material.
+7. **Mathematical Formulas**: If there are formulas also add them and use the latex notation with `$<formula>$` or `$$<block_formula>$$`.
 
 Ensure the content is engaging, well-organized, and visually appealing using the specified markdown components.
 
