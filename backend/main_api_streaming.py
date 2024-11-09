@@ -46,12 +46,8 @@ async def lifespan(app: FastAPI):
         'repetition_penalty': 1.05
     }
 
-    # Use environment variables or secure methods to handle API keys
-    # api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    # project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "de13a787-3de2-49a5-a5ae-845d49453a95"
-    # temp for test poject, because Mazen's project has no more tokens
-    api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
+    api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "Your ALLAM API Key"
+    project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "Your ALLAM Project ID"
 
 
     models['llm'] = Model(

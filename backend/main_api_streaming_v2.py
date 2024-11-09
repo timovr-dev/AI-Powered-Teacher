@@ -76,12 +76,6 @@ async def lifespan(app: FastAPI):
     api_key = str(os.environ.get('ALLAM_WATSONX_KEY'))  # "Your ALLAM API Key"
     project_id = str(os.environ.get('ALLAM_PROJECT_ID'))  # "Your ALLAM Project ID"
 
-    # temp for test project, because Mazen's project has no more tokens
-    # api_key = "5tqyQiy2-ZACV9qzY6xTozxSBnI_3uUms_MUPufDQFbW"
-    # project_id = "de13a787-3de2-49a5-a5ae-845d49453a95"
-    # Mazen's new project:
-    # project_id = "9c5b04dc-c92b-443f-85c2-0cd1dac9d4d3"
-
     models['llm'] = Model(
         model_id=model_id,
         params=parameters,
