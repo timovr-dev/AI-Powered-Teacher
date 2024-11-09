@@ -48,6 +48,7 @@ Follow these steps to set up and run the project:
 3. Install the required packages from `requirements.txt`:
 
     ```bash
+    cd ./backend
     pip install -r requirements.txt
     ```
 
